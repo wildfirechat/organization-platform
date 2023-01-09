@@ -1,0 +1,13 @@
+organization-server/target
+organization-web/dist
+organization-web/node_modules
+organization-work/dist
+organization-work/node_modules
+organization-server/src/main/resources/dist
+application_server.lock.db
+application_server.mv.db
+organization-server/.idea
+organization-server/src/main/resources/static
+.idea
+organization_server.mv.db
+organization_server.trace.db
