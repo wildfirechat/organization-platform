@@ -18,6 +18,7 @@
                             <el-icon class="el-icon-more"/>
                         </span>
                         <el-dropdown-menu slot="dropdown">
+                            <el-dropdown-item v-if="!node.data.groupId" :command="{c:'create-org-group', node: node, depart:node.data}">创建组织官方群</el-dropdown-item>
                             <el-dropdown-item :command="{c:'edit', node: node, depart:node.data}">编辑部门</el-dropdown-item>
                             <el-dropdown-item :command="{c:'add-sub', node: node, depart:node.data}">添加子部门</el-dropdown-item>
                             <el-dropdown-item style="color: red" :command="{c:'remove', node: node, depart:node.data}">删除部门</el-dropdown-item>
@@ -86,6 +87,20 @@
                 :on-delete-employee="onDeleteEmployee"/>
         </el-drawer>
 
+        <el-dialog :visible.sync="showUpdateDepartmentDialog" :before-close="() => this.showUpdateDepartmentDialog= false">
+            <UpdateDepartment
+                :managers="checkedMembers"
+                :current-department="targetDepartment"
+                :parent-department="targetDepartment"
+                :on-update-department="onUpdateDepartment"
+                :on-choose-member="() => {this.checkedMembers = []; this.showChooseMemberDialog = true}"
+                :on-uncheck-member="onUncheckMember"
+            />
+            <el-dialog ref="dialog" :visible.sync="showChooseMemberDialog" append-to-body @hook:mounted="$refs.dialog.rendered = true">>
+                <ChooseMember :initial-checked-members="initialCheckedMembers" :max-choose-count="1" :on-cancel="()=> this.showChooseMemberDialog = false" :on-confirm="onCheckMember"/>
+            </el-dialog>
+        </el-dialog>
+
         <el-dialog :visible.sync="showAddSubDepartmentDialog" :before-close="() => this.showAddSubDepartmentDialog = false">
             <AddSubDepartment
                 :managers="checkedMembers"
@@ -118,15 +133,18 @@
 <script>
 
 import {mapState} from "vuex";
-import AddSubDepartment from "@/components/page/contact/dialog/AddSubDepartment";
-import AddDepartmentMember from "@/components/page/contact/dialog/AddDepartmentMember";
-import ChooseDepartment from "@/components/page/contact/dialog/ChooseDepartment";
-import ChooseMember from "@/components/page/contact/dialog/ChooseMember";
-import DeleteEmployee from "@/components/page/contact/drawer/DeleteEmployee";
+import AddSubDepartment from "@/components/page/organization/dialog/AddSubDepartment";
+import AddDepartmentMember from "@/components/page/organization/dialog/AddDepartmentMember";
+import ChooseDepartment from "@/components/page/organization/dialog/ChooseDepartment";
+import ChooseMember from "@/components/page/organization/dialog/ChooseMember";
+import DeleteEmployee from "@/components/page/organization/drawer/DeleteEmployee";
+import UpdateDepartment from "@/components/page/organization/dialog/UpdateDepartment.vue";
+import fa from "element-ui/src/locale/lang/fa";
+import api from "@/api/api";
 
 export default {
-    name: "user",
-    components: {DeleteEmployee, AddDepartmentMember, AddSubDepartment, ChooseDepartment, ChooseMember},
+    name: "Member",
+    components: {UpdateDepartment, DeleteEmployee, AddDepartmentMember, AddSubDepartment, ChooseDepartment, ChooseMember},
     data() {
         return {
             defaultProps: {
@@ -141,12 +159,14 @@ export default {
 
             showDeleteEmployeeDrawer: false,
 
-            // 添加子部门
+            showUpdateDepartmentDialog: false,
+
             showAddSubDepartmentDialog: false,
+            showAddDepartmentMemberDialog: false,
+
             targetParentDepartment: null,
             targetParentNode: null,
-
-            showAddDepartmentMemberDialog: false,
+            targetNode: null,
             targetDepartment: null,
 
             showChooseDepartmentDialog: false,
@@ -228,22 +248,24 @@ export default {
             console.log('click employee', data)
             this.showDeleteEmployeeDrawer = true;
             this.currentEmployee = data;
-            // this.$router.push('/contact/departmentanduser/department')
+            // this.$router.push('/organization/departmentanduser/department')
         },
         importMember() {
-            this.$router.push('/contact/departmentanduser/import-member')
+            this.$router.push('/organization/departmentanduser/import-member')
         },
 
         handleDepartmentCommand(command) {
             console.log('handleDepartmentCommand', command)
             switch (command.c) {
                 case "add-sub":
-                    console.log(command.depart);
                     this.showAddSubDepartmentDialog = true;
                     this.targetParentDepartment = command.depart;
                     this.targetParentNode = command.node;
                     break;
                 case "edit":
+                    this.showUpdateDepartmentDialog = true;
+                    this.targetDepartment = command.depart;
+                    this.targetNode = command.node;
                     break;
                 case "remove":
                     this.$store.dispatch('removeOrganization', {organization: command.depart, dismissGroup: true})
@@ -251,6 +273,11 @@ export default {
                             let parentNode = command.node.parent;
                             this.updateTreeNode(parentNode);
                         });
+                    break;
+                case 'create-org-group':
+                    api.createOrganizationGroup(command.depart.id, '');
+                    break;
+                default:
                     break;
             }
         },
@@ -267,6 +294,13 @@ export default {
         },
         onUncheckDepartment(department) {
             this.checkedDepartments = this.checkedDepartments.filter(d => d.id !== department.id);
+        },
+
+        onUpdateDepartment(success) {
+            if (success) {
+                this.updateTreeNode(this.targetNode);
+            }
+            this.showUpdateDepartmentDialog = false;
         },
 
         onAddDepartment(success) {

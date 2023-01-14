@@ -47,7 +47,7 @@ export default {
             console.log('queryOrganizationWithChildren', org.id, state)
         },
 
-        async createMember({dispatch}, {employee, targetOrg}) {
+        async createEmployee({dispatch}, {employee, targetOrg}) {
             employee.organizationId = targetOrg.id;
             await Api.createEmployee(employee);
             dispatch('queryOrganizationWithChildren', targetOrg)
@@ -62,6 +62,10 @@ export default {
             }
         },
 
+        async updateOrganization({dispatch}, organization) {
+            await Api.updateOrganization(organization);
+        },
+
         async removeOrganization({state}, {organization, dismissGroup}) {
             await Api.deleteOrganization(organization);
             // let parent = state._findOrganization(state.rootOrganizations[0], organization.parentId)
@@ -73,6 +77,11 @@ export default {
                     console.error('dismissGroup error', e);
                 }
             }
+        },
+
+        async queryEmployee({state}, {employeeId}) {
+            await Api.queryEmployee(employeeId);
+            // TODO 更新当前部门？
         },
 
         async deleteEmployee({state}, {employeeId, destroyIMUser}) {

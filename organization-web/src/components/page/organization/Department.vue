@@ -88,6 +88,10 @@ export default {
                 resolve(data.children ? data.children : data);
             }
         },
+
+        handleClickEmployee(){
+
+        }
     }
 }
 </script>

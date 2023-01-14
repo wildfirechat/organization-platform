@@ -7,20 +7,20 @@
             </el-menu>
         </el-header>
         <el-main>
-            <user v-show="activeIndex === '1'"/>
-            <create-department v-show="activeIndex === '2'"/>
+            <member v-show="activeIndex === '1'"/>
+            <department v-show="activeIndex === '2'"/>
         </el-main>
     </el-container>
 
 </template>
 
 <script>
-import User from "@/components/page/contact/Member";
-import CreateDepartment from "@/components/page/contact/dialog/CreateDepartment";
+import Member from "@/components/page/organization/Member";
+import Department from "@/components/page/organization/Department.vue";
 
 export default {
     name: "departmentAndUser",
-    components: {CreateDepartment, User},
+    components: {Department, Member},
     data() {
         return {
             activeIndex: '1',

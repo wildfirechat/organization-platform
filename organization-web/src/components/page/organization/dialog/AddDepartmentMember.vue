@@ -113,15 +113,15 @@ export default {
         },
         onConfirm() {
             this.checkedDepartments.forEach(department => {
-                this.$store.dispatch('createMember', {
+                this.$store.dispatch('createEmployee', {
                     employee: this.employee,
                     targetOrg: department,
                 })
                     .then(res => {
-                        console.log('create member success', res)
+                        console.log('create employee success', res)
                     })
                     .catch(err => {
-                        console.log('create member error', err)
+                        console.log('create employee error', err)
                     })
             })
             this.onCancel();

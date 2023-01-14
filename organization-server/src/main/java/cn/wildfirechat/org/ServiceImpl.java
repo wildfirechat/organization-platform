@@ -651,7 +651,7 @@ public class ServiceImpl implements Service {
     }
 
     private void quitGroup(String groupId, Collection<String> members) throws IMServerException {
-        if(members == null || members.isEmpty()) {
+        if (members == null || members.isEmpty()) {
             return;
         }
 
@@ -667,7 +667,7 @@ public class ServiceImpl implements Service {
         if (StringUtils.isNullOrEmpty(groupId)) {
             return;
         }
-        if(members == null || members.isEmpty()) {
+        if (members == null || members.isEmpty()) {
             return;
         }
 
@@ -814,9 +814,7 @@ public class ServiceImpl implements Service {
         }
         OrganizationEntity entity = optional.get();
         if (!StringUtils.isNullOrEmpty(entity.groupId)) {
-            if (!optional.isPresent()) {
-                return RestResult.error(ERROR_ALREADY_EXIST);
-            }
+            return RestResult.error(ERROR_ALREADY_EXIST);
         }
 
         if (StringUtils.isNullOrEmpty(entity.managerId)) {
@@ -919,9 +917,9 @@ public class ServiceImpl implements Service {
 
             //修正群组头像
             boolean portraitEquals = false;
-            if(StringUtils.isNullOrEmpty(entity.portraitUrl) && StringUtils.isNullOrEmpty(groupInfoIMResult.getResult().getPortrait())) {
+            if (StringUtils.isNullOrEmpty(entity.portraitUrl) && StringUtils.isNullOrEmpty(groupInfoIMResult.getResult().getPortrait())) {
                 portraitEquals = true;
-            } else if(!StringUtils.isNullOrEmpty(entity.portraitUrl)) {
+            } else if (!StringUtils.isNullOrEmpty(entity.portraitUrl)) {
                 portraitEquals = entity.portraitUrl.equals(groupInfoIMResult.getResult().getPortrait());
             }
 
@@ -1071,10 +1069,10 @@ public class ServiceImpl implements Service {
             } else {
                 //用户已经存在，同步用户信息
                 UserAdmin.updateUserInfo(inputOutputUserInfo, ProtoConstants.UpdateUserInfoMask.Update_User_DisplayName
-                        | ProtoConstants.UpdateUserInfoMask.Update_User_Gender
-                        | ProtoConstants.UpdateUserInfoMask.Update_User_Portrait
-                        | ProtoConstants.UpdateUserInfoMask.Update_User_Mobile
-                        | ProtoConstants.UpdateUserInfoMask.Update_User_Email);
+                    | ProtoConstants.UpdateUserInfoMask.Update_User_Gender
+                    | ProtoConstants.UpdateUserInfoMask.Update_User_Portrait
+                    | ProtoConstants.UpdateUserInfoMask.Update_User_Mobile
+                    | ProtoConstants.UpdateUserInfoMask.Update_User_Email);
             }
         } catch (Exception e) {
             e.printStackTrace();

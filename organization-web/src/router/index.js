@@ -25,24 +25,24 @@ export default new Router({
                 // },
                 {
                     path: '/index',
-                    component: resolve => require(['../components/page/contact/DepartmentAndMember.vue'], resolve),
+                    component: resolve => require(['../components/page/organization/DepartmentAndMember.vue'], resolve),
                     meta: {title: '成员与部门'}
                 },
                 {
-                    path: '/contact/departmentanduser',
-                    component: resolve => require(['../components/page/contact/DepartmentAndMember.vue'], resolve),
+                    path: '/organization/departmentanduser',
+                    component: resolve => require(['../components/page/organization/DepartmentAndMember.vue'], resolve),
                     meta: {title: '成员与部门'},
                     // children: [
                     //     {
-                    //         path: '/contact/departmentanduser/import-member',
-                    //         component: resolve => require(['../components/page/contact/ImportMember.vue'], resolve),
+                    //         path: '/organization/departmentanduser/import-member',
+                    //         component: resolve => require(['../components/page/organization/ImportMember.vue'], resolve),
                     //         meta: {title: '批量导入成员'}
                     //     },
                     // ]
                 },
                 {
-                    path: '/contact/departmentanduser/import-member',
-                    component: resolve => require(['../components/page/contact/ImportMember.vue'], resolve),
+                    path: '/organization/departmentanduser/import-member',
+                    component: resolve => require(['../components/page/organization/ImportMember.vue'], resolve),
                     meta: {title: '批量导入成员'}
                 },
                 {

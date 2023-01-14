@@ -17,6 +17,9 @@ export default {
     async createEmployee(employee) {
         return axios.post('/employee/create', employee);
     },
+    async queryEmployee(employeeId) {
+        return axios.post('/employee/query', {employeeId});
+    },
     async deleteEmployee(employeeId, destroyIMUser = true) {
         return axios.post('/employee/delete', {employeeId, destroyIMUser});
     },
