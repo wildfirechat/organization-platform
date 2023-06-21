@@ -1095,7 +1095,7 @@ public class ServiceImpl implements Service {
     @Override
     public RestResult updateEmployee(EmployeePojo employeePojo) throws IMServerException {
         EmployeeEntity entity = convertEmployee(employeePojo);
-        if (!StringUtils.isNullOrEmpty(entity.employeeId)) {
+        if (StringUtils.isNullOrEmpty(entity.employeeId)) {
             return RestResult.error(ERROR_INVALID_PARAMETER);
         }
 
