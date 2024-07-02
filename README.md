@@ -34,7 +34,7 @@
 ### 管理页面的编译
 进入项目的```organization-web```目录下，执行下属命令:
 ```
-npm run install
+npm install
 npm run build
 ```
 编译成功后，生成的html文件会拷贝到后端服务的资源目录下，这样打包后端服务的时候就可以把页面打包进后端服务了。
