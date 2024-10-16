@@ -337,4 +337,4 @@ export default class TreeStore {
       this.setCurrentNode(node);
     }
   }
-};
+}
