@@ -87,5 +87,18 @@ nohup java -jar organization-platform-server-*.jar 2>&1 &
 官方群
 ![group](./assets/5_org_group.png)
 
+## 常见问题
+1. 输入地址后，打不开管理页面？
+A. 前端页面打包后，会把页面放入到```organization-server\src\main\resources\static```目录中，请检查是否存在。如果不存在，请检查是否执行过编译前端页面。如果用yarn编译，也会出问题，请用npm编译。
+
+2. 登录后无法创建部门？
+A. 设计是需要先导入数据，导入数据后再手动更新。请确认先导入后，再手动调整。如果需要手动创建部门，可以二开修改源码。
+
+3. 配置文件中的关于IM的是什么信息？
+A. 此服务需要更新IM服务用户信息，因此需要配置IM服务的管理地址和密钥。请修改```im.admin_url```和```im.admin_secret```，改为正确的地址。
+
+4. 部署之后，如何提供给客户端使用？
+A. 这个服务还提供API给客户端使用，最简单的方法就是把```http://IP:8880```替换客户端配置文件里的地址。当然建议使用域名和HTTPS，这样能够保证安全还有灵活性。
+
 ## Lisence
 UNDER MIT LICENSE. 详情见LICENSE文件
