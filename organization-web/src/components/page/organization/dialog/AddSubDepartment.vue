@@ -40,6 +40,7 @@
 </template>
 
 <script>
+import { useOrgStore } from "@/store/stores/orgStore";
 
 export default {
     name: "AddSubDepartment",
@@ -65,6 +66,12 @@ export default {
             required: true,
         }
     },
+
+    setup() {
+        const orgStore = useOrgStore();
+        return { orgStore };
+    },
+
     data() {
         return {
             organization: {},
@@ -82,7 +89,7 @@ export default {
         },
         onConfirm() {
             this.organization.managerId = this.managers[0].employeeId;
-            this.$store.dispatch('createOrganization', {
+            this.orgStore.createOrganization({
                 organization: this.organization,
                 parentOrganization: this.parentDepartment,
                 createGroup: this.createOrganizationGroup,

@@ -40,7 +40,7 @@
 </template>
 
 <script>
-
+import { useOrgStore } from "@/store/stores/orgStore";
 import api from "@/api/api";
 import fa from "element-ui/src/locale/lang/fa";
 
@@ -72,6 +72,12 @@ export default {
             required: true,
         }
     },
+
+    setup() {
+        const orgStore = useOrgStore();
+        return { orgStore };
+    },
+
     data() {
         return {
             updatedOrganization: {
@@ -99,9 +105,7 @@ export default {
             this.updatedOrganization.managerId = this.managers[0].employeeId;
             this.currentDepartment.name = this.updatedOrganization.name;
             this.currentDepartment.managerId = this.managers[0].employeeId;
-            this.$store.dispatch('updateOrganization', {
-                organization: this.currentDepartment
-            })
+            this.orgStore.updateOrganization(this.currentDepartment)
                 .then(res => {
                     console.log('create organization success', res)
                     this.onUpdateDepartment(true);
