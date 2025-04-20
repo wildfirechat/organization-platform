@@ -52,7 +52,7 @@
 </template>
 
 <script>
-import {mapState} from "vuex";
+import { useOrgStore } from "@/store/stores/orgStore";
 import Eltree2 from '../../../../../vendor/tree/src/tree'
 
 export default {
@@ -72,6 +72,11 @@ export default {
         }
     },
 
+    setup() {
+        const orgStore = useOrgStore();
+        return { orgStore };
+    },
+
     data() {
         return {
             input: '',
@@ -80,18 +85,20 @@ export default {
     },
 
     computed: {
-        ...mapState({
-            rootOrganizations: state => state.org.rootOrganizations,
-        })
+        rootOrganizations() {
+            return this.orgStore.rootOrganizations;
+        }
     },
+
     mounted() {
         this.$refs.tree.setCheckedNodes([this.checkedDepartment])
     },
+
     methods: {
         handleNodeClick(data) {
             console.log('node click', data)
             if (!data._orgWithChildren && data.id) {
-                this.$store.dispatch('queryOrganizationWithChildren', data)
+                this.orgStore.queryOrganizationWithChildren(data)
             }
             this.currentOrg = data;
         },
@@ -99,7 +106,7 @@ export default {
             console.log('to load data', node)
             let data = node.data;
             if (!data._orgWithChildren && data.id) {
-                await this.$store.dispatch('queryOrganizationWithChildren', data)
+                await this.orgStore.queryOrganizationWithChildren(data)
                 this.currentOrg = data;
                 resolve(data.children);
             } else {
@@ -161,6 +168,4 @@ export default {
     justify-content: flex-end;
     margin-right: 20px;
 }
-
-
 </style>

@@ -131,8 +131,7 @@
 </template>
 
 <script>
-
-import {mapState} from "vuex";
+import { useOrgStore } from "@/store/stores/orgStore";
 import AddSubDepartment from "@/components/page/organization/dialog/AddSubDepartment";
 import AddDepartmentMember from "@/components/page/organization/dialog/AddDepartmentMember";
 import ChooseDepartment from "@/components/page/organization/dialog/ChooseDepartment";
@@ -181,9 +180,9 @@ export default {
         initialCheckedMembers() {
             return this.checkedMembers.map(m => m.employeeId);
         },
-        ...mapState({
-            rootOrganizations: state => state.org.rootOrganizations,
-        })
+        rootOrganizations() {
+            return this.orgStore.rootOrganizations;
+        }
     },
     watch: {
         'currentOrg': {
@@ -202,9 +201,14 @@ export default {
         }
     },
 
+    setup() {
+        const orgStore = useOrgStore();
+        return { orgStore };
+    },
+
     activated() {
         if (this.rootOrganizations.length === 0) {
-            this.$store.dispatch('getRootOrganizationsWithChildren')
+            this.orgStore.getRootOrganizationsWithChildren()
                 .then(() => {
                     this.currentOrg = this.rootOrganizations[0];
                 })
@@ -218,21 +222,21 @@ export default {
         handleNodeClick(data) {
             console.log('node click', data)
             if (!data._orgWithChildren && data.id) {
-                this.$store.dispatch('queryOrganizationWithChildren', data)
+                this.orgStore.queryOrganizationWithChildren(data)
             }
             this.currentOrg = data;
         },
         async handleNodeExpand(data) {
             console.log('node expand', data);
             // if (!data._orgWithChildren && data.id) {
-            //     await this.$store.dispatch('queryOrganizationWithChildren', data)
+            //     await this.orgStore.queryOrganizationWithChildren(data)
             // }
         },
         async loadNode(node, resolve) {
             console.log('to load data', node)
             let data = node.data;
             if ((!data._orgWithChildren && data.id) || data._force) {
-                await this.$store.dispatch('queryOrganizationWithChildren', data)
+                await this.orgStore.queryOrganizationWithChildren(data)
                 console.log('load data', data);
                 this.currentOrg = data;
                 resolve(data.children);
@@ -268,7 +272,7 @@ export default {
                     this.targetNode = command.node;
                     break;
                 case "remove":
-                    this.$store.dispatch('removeOrganization', {organization: command.depart, dismissGroup: true})
+                    this.orgStore.removeOrganization({organization: command.depart, dismissGroup: true})
                         .then(() => {
                             let parentNode = command.node.parent;
                             this.updateTreeNode(parentNode);
@@ -314,7 +318,7 @@ export default {
         onDeleteEmployee(success) {
             this.showDeleteEmployeeDrawer = false;
             if (success) {
-                this.$store.dispatch('queryOrganizationWithChildren', this.currentOrg);
+                this.orgStore.queryOrganizationWithChildren(this.currentOrg);
             }
         },
 

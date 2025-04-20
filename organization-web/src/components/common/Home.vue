@@ -53,8 +53,7 @@
 </template>
 
 <script>
-
-import {mapState} from "vuex";
+import { useUserStore } from "@/store/stores/userStore";
 import Breadcrumb from "@/components/common/Breadcrumb";
 
 export default {
@@ -81,12 +80,22 @@ export default {
     components: {
         Breadcrumb
     },
-    created() {
-        this.$store.dispatch('getAccount')
+
+    setup() {
+        const userStore = useUserStore();
+        return { userStore };
     },
-    computed: mapState({
-        account: state => state.user.account,
-    }),
+
+    created() {
+        this.userStore.getAccount();
+    },
+
+    computed: {
+        account() {
+            return this.userStore.account;
+        }
+    },
+
     methods: {
         go2home() {
             if (this.$router.history.current.path !== '/index') {
@@ -104,10 +113,10 @@ export default {
                     if (this.updatePwdRequest.newPwd !== this.updatePwdRequest.confirmNewPwd) {
                         this.$message.error('两次输入的密码不一致');
                     } else {
-                        this.$store.dispatch('updatePwd', {
+                        this.userStore.updatePwd({
                             oldPassword: this.updatePwdRequest.oldPwd,
                             newPassword: this.updatePwdRequest.newPwd
-                        })
+                        });
                         this.modifyPwdDialogVisible = false;
                     }
                 }
