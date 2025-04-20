@@ -45,14 +45,14 @@
             </div>
         </div>
         <div class="action-container">
-            <el-button @click="onCancel">取消</el-button>
-            <el-button type="primary" @click="onConfirm(checkedDepartments)">确定</el-button>
+            <el-button @click="_onCancel">取消</el-button>
+            <el-button type="primary" @click="_onConfirm">确定</el-button>
         </div>
     </div>
 </template>
 
 <script>
-import { useOrgStore } from "@/store/stores/orgStore";
+import {useOrgStore} from "@/store/stores/orgStore";
 import Eltree2 from '../../../../../vendor/tree/src/tree'
 
 export default {
@@ -74,7 +74,7 @@ export default {
 
     setup() {
         const orgStore = useOrgStore();
-        return { orgStore };
+        return {orgStore};
     },
 
     data() {
@@ -95,6 +95,14 @@ export default {
     },
 
     methods: {
+        _onCancel() {
+            this.onCancel && this.onCancel();
+            this.checkedDepartments = [];
+        },
+        _onConfirm() {
+            this.onConfirm && this.onConfirm(this.checkedDepartments);
+            this.checkedDepartments = [];
+        },
         handleNodeClick(data) {
             console.log('node click', data)
             if (!data._orgWithChildren && data.id) {

@@ -54,7 +54,6 @@
                     prop="name"
                     label="姓名"
                     width="120">
-                    <!--                    <template slot-scope="scope">{{ scope.row.date }}</template>-->
                 </el-table-column>
                 <el-table-column
                     prop="title"
@@ -68,9 +67,9 @@
                 </el-table-column>
                 <el-table-column>
                     <template v-slot="scope">
-                        <el-button class="f-btn" @click="handleClickEmployee(scope.row)" type="text" size="small">查看详情</el-button>
-                        <el-button class="f-btn" @click="handleClickEmployee(scope.row)" type="text" size="small">变更部门</el-button>
-                        <el-button class="f-btn" @click="handleClickEmployee(scope.row)" type="text" size="small">操作离职</el-button>
+                        <el-button v-if="false" class="f-btn" @click="handleClickEmployee(scope.row)" type="text" size="small">查看详情</el-button>
+                        <el-button class="f-btn" @click="handleTransferDepartment(scope.row)" type="text" size="small">变更部门</el-button>
+                        <el-button class="f-btn" @click="handleDeleteEmployee(scope.row)" type="text" size="small">操作离职</el-button>
                     </template>
                 </el-table-column>
             </el-table>
@@ -125,6 +124,36 @@
                 <ChooseDepartment :target-department="currentOrg" :on-cancel="()=> this.showChooseDepartmentDialog = false" :on-confirm="onCheckDepartment"/>
             </el-dialog>
         </el-dialog>
+
+        <el-dialog
+            title="变更部门"
+            :visible.sync="showTransferDepartmentDialog"
+            :close-on-click-modal="false"
+            :before-close="() => {this.showTransferDepartmentDialog = false; this.transferDepartments = []}">
+            <div v-if="employeeToTransfer">
+                <p>将 <b>{{ employeeToTransfer.name }}</b> 变更至：</p>
+                <el-input disabled style="margin: 20px 0;">
+                    <div v-if="transferDepartments && transferDepartments.length" slot="prepend">
+                        <el-tag
+                            v-for="(depart, index) in transferDepartments"
+                            :key="index"
+                            closable
+                            @close="onUncheckTransferDepartment(depart)"
+                            type="info">
+                            {{ depart && depart.name }}
+                        </el-tag>
+                    </div>
+                    <el-button slot="append" type="text" icon="el-icon-edit" @click="showTransferChooseDepartmentDialog = true"></el-button>
+                </el-input>
+                <div style="text-align: right; margin-top: 20px;">
+                    <el-button @click="showTransferDepartmentDialog = false">取消</el-button>
+                    <el-button type="primary" :disabled="transferDepartments.length === 0" @click="confirmTransferDepartment">确定</el-button>
+                </div>
+            </div>
+            <el-dialog :visible.sync="showTransferChooseDepartmentDialog" append-to-body>
+                <ChooseDepartment :on-cancel="()=> this.showTransferChooseDepartmentDialog = false" :on-confirm="onCheckTransferDepartment"/>
+            </el-dialog>
+        </el-dialog>
     </el-container>
 </template>
 
@@ -171,6 +200,10 @@ export default {
             showChooseMemberDialog: false,
             checkedMembers: [],
 
+            showTransferDepartmentDialog: false,
+            showTransferChooseDepartmentDialog: false,
+            employeeToTransfer: null,
+            transferDepartments: [],
         }
     },
     computed: {
@@ -225,9 +258,6 @@ export default {
         },
         async handleNodeExpand(data) {
             console.log('node expand', data);
-            // if (!data._orgWithChildren && data.id) {
-            //     await this.orgStore.queryOrganizationWithChildren(data)
-            // }
         },
         async loadNode(node, resolve) {
             console.log('to load data', node)
@@ -245,16 +275,34 @@ export default {
             this.multipleSelection = val;
         },
         handleClickEmployee(data) {
-            // employee
             console.log('click employee', data)
+        },
+        handleDeleteEmployee(data) {
             this.showDeleteEmployeeDrawer = true;
             this.currentEmployee = data;
-            // this.$router.push('/organization/departmentanduser/department')
+        },
+        handleTransferDepartment(data) {
+            this.employeeToTransfer = data;
+            this.transferDepartments = [];
+            this.showTransferDepartmentDialog = true;
+        },
+        onCheckTransferDepartment(departments) {
+            this.transferDepartments = departments;
+            this.showTransferChooseDepartmentDialog = false;
+        },
+        onUncheckTransferDepartment(department) {
+            this.transferDepartments = this.transferDepartments.filter(d => d.id !== department.id);
+        },
+        confirmTransferDepartment() {
+            if (this.employeeToTransfer && this.transferDepartments.length > 0) {
+                let targetOrgIds = this.transferDepartments.map(d => d.id);
+                this.orgStore.transferEmployee(this.employeeToTransfer.employeeId, targetOrgIds)
+            }
+            this.showTransferDepartmentDialog = false
         },
         importMember() {
             this.$router.push('/organization/departmentanduser/import-member')
         },
-
         handleDepartmentCommand(command) {
             console.log('handleDepartmentCommand', command)
             switch (command.c) {
@@ -296,14 +344,12 @@ export default {
         onUncheckDepartment(department) {
             this.checkedDepartments = this.checkedDepartments.filter(d => d.id !== department.id);
         },
-
         onUpdateDepartment(success) {
             if (success) {
                 this.updateTreeNode(this.targetNode);
             }
             this.showUpdateDepartmentDialog = false;
         },
-
         onAddDepartment(success) {
             if (success) {
                 this.updateTreeNode(this.targetParentNode);
@@ -311,16 +357,12 @@ export default {
             }
             this.showAddSubDepartmentDialog = false;
         },
-
         onDeleteEmployee(success) {
             this.showDeleteEmployeeDrawer = false;
             if (success) {
                 this.orgStore.queryOrganizationWithChildren(this.currentOrg);
             }
         },
-
-        // el-tree 绑定的数据更新之后，并不会自动更新，故采用这种方案
-        // fyi: https://zhuanlan.zhihu.com/p/370597632
         updateTreeNode(node) {
             node.loaded = false;
             node.data._force = true;

@@ -17,6 +17,14 @@ export default {
     async createEmployee(employee) {
         return axios.post('/employee/create', employee);
     },
+    /**
+     * 员工变更部门
+     * @param employee
+     * @return {Promise<axios.AxiosResponse<any>>}
+     */
+    async moveEmployee(moveEmployeePojo) {
+        return axios.post('/employee/move', moveEmployeePojo);
+    },
     async queryEmployee(employeeId) {
         return axios.post('/employee/query', {employeeId});
     },

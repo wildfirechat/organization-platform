@@ -54,6 +54,14 @@ export const useOrgStore = defineStore('org', {
       this.queryOrganizationWithChildren(targetOrg);
     },
 
+      async transferEmployee(employeeId, targetOrgIds) {
+          await Api.moveEmployee({
+              employeeId: employeeId,
+              organizations: targetOrgIds,
+          });
+          this.getRootOrganizationsWithChildren()
+      },
+
     async createOrganization({parentOrganization, organization, createGroup}) {
       organization.parentId = parentOrganization.id;
       let result = await Api.createOrganization(organization);
