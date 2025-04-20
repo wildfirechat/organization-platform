@@ -34,10 +34,8 @@
             <el-header>
                 <div style="height: 100%; display: flex; flex-direction: row; align-items: center; justify-content: center">
                     <p style="flex: 1 1 auto"> {{ currentOrg && currentOrg.name }}</p>
-                    <el-button type="primary" icon="el-icon-plus" @click="showAddDepartmentMemberDialog = true">添加成员</el-button>
-                    <el-button v-if="rootOrganizations.length === 0" @click="importMember">批量导入</el-button>
-                    <el-button>变更部门</el-button>
-                    <el-button type="danger">操作离职</el-button>
+                    <el-button type="primary" icon="el-icon-plus" v-if="rootOrganizations.length > 0" @click="showAddDepartmentMemberDialog = true">添加成员</el-button>
+                    <el-button type="primary" v-if="rootOrganizations.length === 0" @click="importMember">批量导入</el-button>
                 </div>
             </el-header>
             <el-table
@@ -131,14 +129,13 @@
 </template>
 
 <script>
-import { useOrgStore } from "@/store/stores/orgStore";
+import {useOrgStore} from "@/store/stores/orgStore";
 import AddSubDepartment from "@/components/page/organization/dialog/AddSubDepartment";
 import AddDepartmentMember from "@/components/page/organization/dialog/AddDepartmentMember";
 import ChooseDepartment from "@/components/page/organization/dialog/ChooseDepartment";
 import ChooseMember from "@/components/page/organization/dialog/ChooseMember";
 import DeleteEmployee from "@/components/page/organization/drawer/DeleteEmployee";
 import UpdateDepartment from "@/components/page/organization/dialog/UpdateDepartment.vue";
-import fa from "element-ui/src/locale/lang/fa";
 import api from "@/api/api";
 
 export default {
@@ -203,7 +200,7 @@ export default {
 
     setup() {
         const orgStore = useOrgStore();
-        return { orgStore };
+        return {orgStore};
     },
 
     activated() {

@@ -4,8 +4,8 @@
             <div style="height: 60px; display: flex; justify-content: center;align-items: center" @click="go2home">
                 <p>野火组织架构管理后台</p>
             </div>
-            <el-menu default-active='/contact/departmentanduser' router>
-                <el-menu-item index="/contact/departmentanduser">成员与部门</el-menu-item>
+            <el-menu router>
+                <el-menu-item index="/organization/departmentanduser">成员与部门</el-menu-item>
             </el-menu>
         </el-aside>
         <el-container :class="{'content-collapse':collapse}">
@@ -53,7 +53,8 @@
 </template>
 
 <script>
-import { useUserStore } from "@/store/stores/userStore";
+import {useUserStore} from "@/store/stores/userStore";
+import {useOrgStore} from "@/store/stores/orgStore";
 import Breadcrumb from "@/components/common/Breadcrumb";
 
 export default {
@@ -83,23 +84,29 @@ export default {
 
     setup() {
         const userStore = useUserStore();
-        return { userStore };
+        const orgStore = useOrgStore();
+        return {userStore, orgStore};
     },
 
     created() {
         this.userStore.getAccount();
+        this.orgStore.getRootOrganizationsWithChildren();
     },
 
     computed: {
         account() {
             return this.userStore.account;
-        }
+        },
+        rootOrganizations() {
+            return this.orgStore.rootOrganizations;
+        },
     },
 
     methods: {
         go2home() {
-            if (this.$router.history.current.path !== '/index') {
-                this.$router.replace('/index')
+            const defaultPath = this.rootOrganizations.length > 0 ? '/organization/departmentanduser' : '/organization//import-member';
+            if (this.$router.history.current.path !== defaultPath) {
+                this.$router.replace(defaultPath);
             }
         },
         logout() {
@@ -121,6 +128,20 @@ export default {
                     }
                 }
             });
+        }
+    },
+    watch: {
+        rootOrganizations: {
+            handler(newVal) {
+                // 当根组织数据变化时，检查是否需要跳转到批量导入页面
+                if (newVal.length === 0 && this.$router.history.current.path !== '/organization/departmentanduser/import-member') {
+                    this.$router.push('/organization/departmentanduser/import-member')
+                } else if (newVal.length > 0 && this.$router.history.current.path !== '/organization/departmentanduser') {
+                    this.$router.push('/organization/departmentanduser')
+                }
+            },
+            deep: true,
+            immediate: true
         }
     }
 }

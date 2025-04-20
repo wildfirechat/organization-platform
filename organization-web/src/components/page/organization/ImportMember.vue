@@ -16,7 +16,7 @@
                     :action="uploadUrl"
                     :with-credentials="true"
                     accept=".xls,.xlsx"
-                    :show-file-list="false"
+                    :show-file-list="true"
                     :limit="1"
                     :on-change="handleChange"
                     :auto-upload="false"
