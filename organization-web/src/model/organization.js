@@ -18,6 +18,7 @@ export default class Organization {
     // for ui
     label;
     type;
+    managerName;
     // subDepartments
     children;
     hasChildren = true;
@@ -26,6 +27,8 @@ export default class Organization {
     buildRenderData(organizationWithChildren) {
         this.label = this.name;
         this.type = 1;
+        let manager = organizationWithChildren ? organizationWithChildren.employees.find(e => e.employeeId === this.managerId) : null
+        this.managerName = manager ? manager.name : null;
         this.children = [];
         this.employees = [];
         if (!organizationWithChildren) {

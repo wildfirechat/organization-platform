@@ -30,7 +30,7 @@ export default new Router({
                 },
                 {
                     path: '/organization/departmentanduser',
-                    component: resolve => require(['../components/page/organization/DepartmentAndMember.vue'], resolve),
+                    component: resolve => require(['../components/page/organization/Member.vue'], resolve),
                     meta: {title: '成员与部门'},
                     // children: [
                     //     {
