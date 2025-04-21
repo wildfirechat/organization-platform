@@ -8,12 +8,12 @@
             <el-form-item label="部门负责人">
                 <el-input disabled>
                     <div slot="prepend">
-                        <el-tag v-if="manager" closable @close="handleCloseTag(manager)" type="info">
-                            {{ manager.name }}
+                        <el-tag v-if="computedManager" closable @close="handleCloseTag(manager)" type="info">
+                            {{ computedManager.name }}
                         </el-tag>
                     </div>
                     <el-button slot="append" type="text" icon="el-icon-edit"
-                        @click="showChooseMemberDialog = true"></el-button>
+                               @click="showChooseMemberDialog = true"></el-button>
                 </el-input>
             </el-form-item>
             <el-form-item v-if="!currentDepartment.groupId" label="是否创建部门群">
@@ -26,21 +26,21 @@
         </div>
 
         <!-- 集成 ChooseMember 对话框 -->
-        <el-dialog :visible.sync="showChooseMemberDialog" append-to-body title="选择成员">
+        <el-dialog :visible.sync="showChooseMemberDialog" append-to-body title="选择成员" destroy-on-close>
             <ChooseMember :initial-checked-members="initialCheckedMembers" :max-choose-count="1"
-                :on-cancel="() => this.showChooseMemberDialog = false" :on-confirm="onCheckMember" />
+                          :on-cancel="() => this.showChooseMemberDialog = false" :on-confirm="onCheckMember"/>
         </el-dialog>
     </div>
 </template>
 
 <script>
-import { useOrgStore } from "@/store/stores/orgStore";
+import {useOrgStore} from "@/store/stores/orgStore";
 import api from "@/api/api";
 import ChooseMember from "@/components/page/organization/dialog/ChooseMember";
 
 export default {
     name: "UpdateDepartment",
-    components: { ChooseMember },
+    components: {ChooseMember},
     props: {
         currentDepartment: {
             type: Object,
@@ -54,7 +54,7 @@ export default {
 
     setup() {
         const orgStore = useOrgStore();
-        return { orgStore };
+        return {orgStore};
     },
 
     data() {
@@ -73,15 +73,10 @@ export default {
         },
         initialCheckedMembers() {
             return this.manager ? [this.manager.employeeId] : [];
+        },
+        computedManager() {
+            return this.manager ? this.manager : this.currentDepartment.employees.filter(m => m.employeeId === this.currentDepartment.managerId)[0];
         }
-    },
-
-    async mounted() {
-        this.manager = this.currentDepartment.employees.filter(m => m.employeeId === this.currentDepartment.managerId)[0];
-    },
-
-    unmounted() {
-        this.updatedOrganization = {}
     },
 
     methods: {
@@ -93,7 +88,6 @@ export default {
             console.log('onCheckMembers ', members)
             if (members && members.length > 0) {
                 this.manager = members[0];
-                console.log('xxxxxx', this.manager)
             }
         },
         onConfirm() {

@@ -1,6 +1,5 @@
 <template>
     <div>
-        <p class="title">请选择成员</p>
         <div class="container">
             <div class="org-container">
                 <el-input class="input" v-model="input" placeholder="请输入成员名称"></el-input>
@@ -54,7 +53,7 @@
 </template>
 
 <script>
-import { useOrgStore } from "@/store/stores/orgStore";
+import {useOrgStore} from "@/store/stores/orgStore";
 import Eltree2 from '../../../../../vendor/tree/src/tree'
 
 export default {
@@ -83,7 +82,7 @@ export default {
 
     setup() {
         const orgStore = useOrgStore();
-        return { orgStore };
+        return {orgStore};
     },
 
     data() {
