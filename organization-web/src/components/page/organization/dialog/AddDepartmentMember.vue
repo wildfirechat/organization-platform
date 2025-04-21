@@ -57,6 +57,7 @@
 </template>
 
 <script>
+import { useOrgStore } from "@/store/stores/orgStore";
 
 export default {
     name: "AddDepartmentMember",
@@ -78,6 +79,12 @@ export default {
             required: true,
         }
     },
+
+    setup() {
+        const orgStore = useOrgStore();
+        return { orgStore };
+    },
+
     data() {
         return {
             employee: {},
@@ -113,7 +120,7 @@ export default {
         },
         onConfirm() {
             this.checkedDepartments.forEach(department => {
-                this.$store.dispatch('createEmployee', {
+                this.orgStore.createEmployee({
                     employee: this.employee,
                     targetOrg: department,
                 })

@@ -24,6 +24,7 @@
 </template>
 <script>
 import LoginRequest from "@/model/loginRequest";
+import { useUserStore } from "@/store/stores/userStore";
 
 export default {
     data: function () {
@@ -43,13 +44,19 @@ export default {
             },
         }
     },
+
+    setup() {
+        const userStore = useUserStore();
+        return { userStore };
+    },
+
     methods: {
         submitForm(formName) {
             let self = this;
             self.loading = true
             this.$refs[formName].validate((valid) => {
                 if (valid) {
-                    this.$store.dispatch('login', new LoginRequest(
+                    this.userStore.login(new LoginRequest(
                         this.loginForm.username, this.loginForm.password
                     )).then(() => {
                         console.log('login success');

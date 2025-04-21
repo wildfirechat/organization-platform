@@ -476,9 +476,11 @@ public class ServiceImpl implements Service {
         entity.createDt = optional.get().createDt;
         entity.updateDt = System.currentTimeMillis();
 
+        String orgManagerId = optional.get().managerId;
+
         organizationEntityRepository.save(entity);
 
-        if (!isEqual(entity.managerId, optional.get().managerId)) {
+        if (!isEqual(entity.managerId, orgManagerId)) {
             // 将新部门 manager 加入部门
             RelationshipID relationshipID = new RelationshipID();
             relationshipID.employeeId = entity.managerId;

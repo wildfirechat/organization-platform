@@ -25,6 +25,8 @@
 </template>
 
 <script>
+import { useOrgStore } from "@/store/stores/orgStore";
+
 export default {
     name: "DeleteEmployee",
     props: {
@@ -37,6 +39,12 @@ export default {
             required: true,
         }
     },
+
+    setup() {
+        const orgStore = useOrgStore();
+        return { orgStore };
+    },
+
     data() {
         return {
             destroyIMUser: false,
@@ -44,7 +52,7 @@ export default {
     },
     methods: {
         onConfirm() {
-            this.$store.dispatch('deleteEmployee', {employeeId: this.employee.employeeId, destroyIMUser: this.destroyIMUser})
+            this.orgStore.deleteEmployee({employeeId: this.employee.employeeId, destroyIMUser: this.destroyIMUser})
                 .then(() => {
                     this.onDeleteEmployee(true);
                 })

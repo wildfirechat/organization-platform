@@ -15,7 +15,7 @@
             </el-form-item>
             <el-form-item label="部门负责人">
                 <el-input disabled>
-                    <div v-if="managers && managers.length > 0" slot="prepend">
+                    <div v-if="managers.length > 0" slot="prepend">
                         <el-tag
                             v-for="(member, index) in managers"
                             :key="index"
@@ -25,7 +25,7 @@
                             {{ member.name }}
                         </el-tag>
                     </div>
-                    <el-button slot="append" type="text" icon="el-icon-edit" @click="onChooseMember"></el-button>
+                    <el-button slot="append" type="text" icon="el-icon-edit" @click="showChooseMemberDialog = true"></el-button>
                 </el-input>
             </el-form-item>
             <el-form-item label="是否创建部门群">
@@ -36,53 +36,72 @@
             <el-button @click="onAddDepartment(false)">取消</el-button>
             <el-button type="primary" :disabled="!confirmButtonEnable" @click="onConfirm">确定</el-button>
         </div>
+
+        <!-- 集成 ChooseMember 对话框 -->
+        <el-dialog :visible.sync="showChooseMemberDialog" append-to-body title="选择成员">
+            <ChooseMember
+                :initial-checked-members="initialCheckedMembers"
+                :max-choose-count="1"
+                :on-cancel="() => this.showChooseMemberDialog = false"
+                :on-confirm="onCheckMember"/>
+        </el-dialog>
     </div>
 </template>
 
 <script>
+import { useOrgStore } from "@/store/stores/orgStore";
+import ChooseMember from "@/components/page/organization/dialog/ChooseMember";
 
 export default {
     name: "AddSubDepartment",
+    components: {ChooseMember},
     props: {
         parentDepartment: {
             type: Object,
             required: true,
         },
-        managers: {
-            type: Array,
-            required: true,
-        },
         onAddDepartment: {
-            type: Function,
-            required: true,
-        },
-        onChooseMember: {
-            type: Function,
-            required: true,
-        },
-        onUncheckMember: {
             type: Function,
             required: true,
         }
     },
+
+    setup() {
+        const orgStore = useOrgStore();
+        return { orgStore };
+    },
+
     data() {
         return {
             organization: {},
             createOrganizationGroup: false,
+            managers: [],
+            showChooseMemberDialog: false
         }
     },
     computed: {
         confirmButtonEnable() {
             return this.organization.name && this.managers.length === 1
+        },
+        initialCheckedMembers() {
+            return this.managers.map(m => m.employeeId);
         }
     },
     methods: {
         handleCloseTag(tag) {
-            this.onUncheckMember(tag);
+            this.managers = this.managers.filter(m => m.employeeId !== tag.employeeId);
+        },
+        onCheckMember(members) {
+            this.showChooseMemberDialog = false;
+            this.managers = members;
         },
         onConfirm() {
+            if (this.managers.length === 0) {
+                this.$message.error('请选择部门负责人');
+                return;
+            }
             this.organization.managerId = this.managers[0].employeeId;
-            this.$store.dispatch('createOrganization', {
+            this.orgStore.createOrganization({
                 organization: this.organization,
                 parentOrganization: this.parentDepartment,
                 createGroup: this.createOrganizationGroup,

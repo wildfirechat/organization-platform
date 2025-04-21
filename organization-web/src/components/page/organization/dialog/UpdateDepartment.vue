@@ -1,31 +1,19 @@
 <template>
     <div>
         <p class="title">更新部门</p>
-        <el-form
-            label-position="right"
-            :model="updatedOrganization"
-            size="medium"
-            class="demo-form-inline">
+        <el-form label-position="right" :model="updatedOrganization" size="medium" class="demo-form-inline">
             <el-form-item label="部门名称">
                 <el-input v-model.trim="updatedOrganization.name" placeholder="部门名称"></el-input>
             </el-form-item>
-            <el-form-item label="上级部门">
-                <el-input disabled :value="parentDepartment.name">
-                </el-input>
-            </el-form-item>
             <el-form-item label="部门负责人">
                 <el-input disabled>
-                    <div v-if="managers && managers.length > 0" slot="prepend">
-                        <el-tag
-                            v-for="(member, index) in managers"
-                            :key="index"
-                            closable
-                            @close="handleCloseTag(member)"
-                            type="info">
-                            {{ member.name }}
+                    <div slot="prepend">
+                        <el-tag v-if="computedManager" closable @close="handleCloseTag(manager)" type="info">
+                            {{ computedManager.name }}
                         </el-tag>
                     </div>
-                    <el-button slot="append" type="text" icon="el-icon-edit" @click="onChooseMember"></el-button>
+                    <el-button slot="append" type="text" icon="el-icon-edit"
+                               @click="showChooseMemberDialog = true"></el-button>
                 </el-input>
             </el-form-item>
             <el-form-item v-if="!currentDepartment.groupId" label="是否创建部门群">
@@ -36,100 +24,101 @@
             <el-button @click="onUpdateDepartment(false)">取消</el-button>
             <el-button type="primary" :disabled="!confirmButtonEnable" @click="onConfirm">确定</el-button>
         </div>
+
+        <!-- 集成 ChooseMember 对话框 -->
+        <el-dialog :visible.sync="showChooseMemberDialog" append-to-body title="选择成员" destroy-on-close>
+            <ChooseMember :initial-checked-members="initialCheckedMembers" :max-choose-count="1"
+                          :on-cancel="() => this.showChooseMemberDialog = false" :on-confirm="onCheckMember"/>
+        </el-dialog>
     </div>
 </template>
 
 <script>
-
+import {useOrgStore} from "@/store/stores/orgStore";
 import api from "@/api/api";
-import fa from "element-ui/src/locale/lang/fa";
+import ChooseMember from "@/components/page/organization/dialog/ChooseMember";
 
 export default {
     name: "UpdateDepartment",
+    components: {ChooseMember},
     props: {
         currentDepartment: {
             type: Object,
             required: true,
         },
-        parentDepartment: {
-            type: Object,
-            required: true,
-        },
-        managers: {
-            type: Array,
-            required: true,
-        },
         onUpdateDepartment: {
-            type: Function,
-            required: true,
-        },
-        onChooseMember: {
-            type: Function,
-            required: true,
-        },
-        onUncheckMember: {
             type: Function,
             required: true,
         }
     },
+
+    setup() {
+        const orgStore = useOrgStore();
+        return {orgStore};
+    },
+
     data() {
         return {
             updatedOrganization: {
                 name: this.currentDepartment.name,
             },
             createOrganizationGroup: !this.currentDepartment.groupId,
+            manager: null,
+            showChooseMemberDialog: false,
         }
     },
     computed: {
-        fa() {
-            return fa
-        },
         confirmButtonEnable() {
-            return this.updatedOrganization.name && this.managers.length === 1
+            return this.updatedOrganization.name && this.manager;
         },
-    },
-    async mounted() {
+        initialCheckedMembers() {
+            return this.manager ? [this.manager.employeeId] : [];
+        },
+        computedManager() {
+            return this.manager ? this.manager : this.currentDepartment.employees.filter(m => m.employeeId === this.currentDepartment.managerId)[0];
+        }
     },
 
     methods: {
-        handleCloseTag(tag) {
-            this.onUncheckMember(tag);
+        handleCloseTag() {
+            this.manager = null;
+        },
+        onCheckMember(members) {
+            this.showChooseMemberDialog = false;
+            console.log('onCheckMembers ', members)
+            if (members && members.length > 0) {
+                this.manager = members[0];
+            }
         },
         onConfirm() {
-            this.updatedOrganization.managerId = this.managers[0].employeeId;
+            if (!this.manager) {
+                this.$message.error('请选择部门负责人');
+                return;
+            }
+
+            this.updatedOrganization.managerId = this.manager.employeeId;
             this.currentDepartment.name = this.updatedOrganization.name;
-            this.currentDepartment.managerId = this.managers[0].employeeId;
-            this.$store.dispatch('updateOrganization', {
-                organization: this.currentDepartment
-            })
+            this.currentDepartment.managerId = this.manager.employeeId;
+
+            this.orgStore.updateOrganization(this.currentDepartment)
                 .then(res => {
-                    console.log('create organization success', res)
+                    console.log('更新部门成功', res)
                     this.onUpdateDepartment(true);
                 })
                 .catch(err => {
-                    console.log('create organization error', err)
+                    console.log('更新部门失败', err)
                     this.onUpdateDepartment(false);
                 })
+
             if (this.createOrganizationGroup) {
                 api.createOrganizationGroup(this.currentDepartment.id, '')
             }
-        },
-    },
-
-    watch: {
-        organization: {
-            async handler() {
-                let employee = await api.queryEmployee(this.currentDepartment.managerId)
-                this.managers.push(employee);
-            },
-            immediate: true,
         }
     }
 }
 </script>
 
 <style scoped>
-
 .title {
     position: absolute;
     top: 20px;
@@ -147,5 +136,4 @@ export default {
     justify-content: flex-end;
     margin-right: 10px;
 }
-
 </style>

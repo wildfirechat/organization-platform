@@ -4,7 +4,7 @@ import Vue from 'vue';
 import App from './App';
 import router from './router';
 import ElementUI from 'element-ui';
-import store from './store';
+import pinia from './store/pinia';
 import 'element-ui/lib/theme-chalk/index.css'; // 默认主题
 import VueI18n from 'vue-i18n'
 
@@ -29,7 +29,7 @@ const i18n = new VueI18n({
 export default new Vue({
     el: '#app',
     router,
-    store,
+    pinia,
     i18n,
     components: {App},
     render: h => h(App)

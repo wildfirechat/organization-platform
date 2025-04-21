@@ -49,7 +49,7 @@
 </template>
 
 <script>
-import {mapState} from "vuex";
+import { useOrgStore } from "@/store/stores/orgStore";
 
 export default {
     name: "createDepartment",
@@ -59,11 +59,18 @@ export default {
             input: '',
         }
     },
-    computed: {
-        ...mapState({
-            rootOrganizations: state => state.org.rootOrganizations,
-        })
+
+    setup() {
+        const orgStore = useOrgStore();
+        return { orgStore };
     },
+
+    computed: {
+        rootOrganizations() {
+            return this.orgStore.rootOrganizations;
+        }
+    },
+
     methods: {
         toggleSelection(rows) {
             if (rows) {
@@ -81,7 +88,7 @@ export default {
             console.log('to load data', tree, treeNode)
             let data = tree;
             if (!data._orgWithChildren && data.id) {
-                await this.$store.dispatch('queryOrganizationWithChildren', data)
+                await this.orgStore.queryOrganizationWithChildren(data)
                 this.currentOrg = data;
                 resolve(data.children);
             } else {

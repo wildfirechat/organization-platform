@@ -24,7 +24,14 @@
 </template>
 
 <script>
+import { useUserStore } from "@/store/stores/userStore";
+
 export default {
+    setup() {
+        const userStore = useUserStore();
+        return { userStore };
+    },
+
     data() {
         return {
             loading: false,
@@ -39,7 +46,7 @@ export default {
                 return
             }
             this.loading = true
-            this.$store.dispatch('updatePwd', this.user).then(() => {
+            this.userStore.updatePwd(this.user).then(() => {
                 self.$message(this.$t('common.action_success'))
             }).finally(() => {
                 self.loading = false
