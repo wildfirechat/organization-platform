@@ -98,19 +98,9 @@
         </el-dialog>
 
         <el-dialog :visible.sync="showAddDepartmentMemberDialog" :close-on-click-modal="false"
-                   :before-close="() => { this.showAddDepartmentMemberDialog = false; this.checkedDepartments = [] }">
+                   :before-close="() => { this.showAddDepartmentMemberDialog = false }">
             <AddDepartmentMember v-if="showAddDepartmentMemberDialog"
-                                 :checked-departments="checkedDepartments"
-                                 :on-cancel="() => this.showAddDepartmentMemberDialog = false"
-                                 :on-choose-department="() => this.showChooseDepartmentDialog = true"
-                                 :on-uncheck-department="onUncheckDepartment"/>
-            <el-dialog :visible.sync="showChooseDepartmentDialog" append-to-body>
-                <ChooseDepartment
-                    v-if="showChooseDepartmentDialog"
-                    :target-department="currentOrg"
-                    :on-cancel="() => this.showChooseDepartmentDialog = false"
-                    :on-confirm="onCheckDepartment"/>
-            </el-dialog>
+                                 :on-cancel="() => this.showAddDepartmentMemberDialog = false"/>
         </el-dialog>
 
         <el-dialog title="变更部门" :visible.sync="showTransferDepartmentDialog" :close-on-click-modal="false"
@@ -175,9 +165,6 @@ export default {
             targetParentNode: null,
             targetNode: null,
             targetDepartment: null,
-
-            showChooseDepartmentDialog: false,
-            checkedDepartments: [],
 
             showTransferDepartmentDialog: false,
             showTransferChooseDepartmentDialog: false,
@@ -305,13 +292,6 @@ export default {
                 default:
                     break;
             }
-        },
-        onCheckDepartment(departments) {
-            this.checkedDepartments = departments;
-            this.showChooseDepartmentDialog = false;
-        },
-        onUncheckDepartment(department) {
-            this.checkedDepartments = this.checkedDepartments.filter(d => d.id !== department.id);
         },
         onUpdateDepartment(success) {
             if (success) {

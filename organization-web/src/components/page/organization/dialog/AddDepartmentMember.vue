@@ -22,7 +22,7 @@
                             {{ depart && depart.name }}
                         </el-tag>
                     </div>
-                    <el-button slot="append" type="text" icon="el-icon-edit" @click="onChooseDepartment"></el-button>
+                    <el-button slot="append" type="text" icon="el-icon-edit" @click="showChooseDepartmentDialog = true"></el-button>
                 </el-input>
             </el-form-item>
             <el-form-item label="手机号码">
@@ -53,28 +53,25 @@
             <el-button @click="onCancel">取消</el-button>
             <el-button type="primary" :disabled="!confirmButtonEnable" @click="onConfirm">确定</el-button>
         </div>
+
+        <!-- 添加 ChooseDepartment 对话框 -->
+        <el-dialog :visible.sync="showChooseDepartmentDialog" append-to-body title="选择部门">
+            <ChooseDepartment
+                :on-cancel="() => this.showChooseDepartmentDialog = false"
+                :on-confirm="onCheckDepartment"/>
+        </el-dialog>
     </div>
 </template>
 
 <script>
 import { useOrgStore } from "@/store/stores/orgStore";
+import ChooseDepartment from "@/components/page/organization/dialog/ChooseDepartment";
 
 export default {
     name: "AddDepartmentMember",
+    components: { ChooseDepartment },
     props: {
-        checkedDepartments: {
-            type: Array,
-            required: true,
-        },
         onCancel: {
-            type: Function,
-            required: true,
-        },
-        onChooseDepartment: {
-            type: Function,
-            required: true,
-        },
-        onUncheckDepartment: {
             type: Function,
             required: true,
         }
@@ -88,6 +85,8 @@ export default {
     data() {
         return {
             employee: {},
+            checkedDepartments: [],
+            showChooseDepartmentDialog: false
         }
     },
     computed: {
@@ -116,9 +115,18 @@ export default {
             return isJPG && isLt2M;
         },
         handleCloseTag(tag) {
-            this.onUncheckDepartment(tag);
+            this.checkedDepartments = this.checkedDepartments.filter(d => d.id !== tag.id);
+        },
+        onCheckDepartment(departments) {
+            this.checkedDepartments = departments;
+            this.showChooseDepartmentDialog = false;
         },
         onConfirm() {
+            if (this.checkedDepartments.length === 0) {
+                this.$message.error('请选择至少一个部门');
+                return;
+            }
+            
             this.checkedDepartments.forEach(department => {
                 this.orgStore.createEmployee({
                     employee: this.employee,
