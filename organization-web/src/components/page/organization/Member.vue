@@ -2,8 +2,16 @@
     <el-container style="height: 100%">
         <el-aside style="border-right: 1px solid #e6e6e6; padding-right: 20px">
             <el-input v-if="false" v-model="input" placeholder="请输入姓名、邮箱或手机号"></el-input>
-            <el-tree v-if="!input" :data="rootOrganizations" ref="tree" :expand-on-click-node="true"
-                     :props="defaultProps" :render-after-expand='false' lazy :load="loadNode" @node-click="handleNodeClick"
+            <el-tree v-if="!input"
+                     :data="rootOrganizations"
+                     ref="tree"
+                     :expand-on-click-node="true"
+                     :props="defaultProps"
+                     :render-after-expand='false'
+                     lazy
+                     :load="loadNode"
+                     node-key="id"
+                     @node-click="handleNodeClick"
                      @node-expand="handleNodeExpand">
                 <span class="custom-tree-node" slot-scope="{ node}">
                     <span>{{ node.label }}</span>
@@ -104,30 +112,12 @@
         </el-dialog>
 
         <el-dialog title="变更部门" :visible.sync="showTransferDepartmentDialog" :close-on-click-modal="false"
-                   :before-close="() => { this.showTransferDepartmentDialog = false; this.transferDepartments = [] }">
-            <div v-if="employeeToTransfer">
-                <p>将 <b>{{ employeeToTransfer.name }}</b> 变更至：</p>
-                <el-input disabled style="margin: 20px 0;">
-                    <div v-if="transferDepartments && transferDepartments.length" slot="prepend">
-                        <el-tag v-for="(depart, index) in transferDepartments" :key="index" closable
-                                @close="onUncheckTransferDepartment(depart)" type="info">
-                            {{ depart && depart.name }}
-                        </el-tag>
-                    </div>
-                    <el-button slot="append" type="text" icon="el-icon-edit"
-                               @click="showTransferChooseDepartmentDialog = true"></el-button>
-                </el-input>
-                <div style="text-align: right; margin-top: 20px;">
-                    <el-button @click="showTransferDepartmentDialog = false">取消</el-button>
-                    <el-button type="primary" :disabled="transferDepartments.length === 0"
-                               @click="confirmTransferDepartment">确定
-                    </el-button>
-                </div>
-            </div>
-            <el-dialog :visible.sync="showTransferChooseDepartmentDialog" append-to-body>
-                <ChooseDepartment :on-cancel="() => this.showTransferChooseDepartmentDialog = false"
-                                  :on-confirm="onCheckTransferDepartment"/>
-            </el-dialog>
+                   :before-close="() => { this.showTransferDepartmentDialog = false }">
+            <TransferMember
+                v-if="showTransferDepartmentDialog"
+                :employee="employeeToTransfer"
+                :on-cancel="() => this.showTransferDepartmentDialog = false"
+                :on-success="onTransferSuccess"/>
         </el-dialog>
     </el-container>
 </template>
@@ -136,19 +126,26 @@
 import {useOrgStore} from "@/store/stores/orgStore";
 import AddSubDepartment from "@/components/page/organization/dialog/AddSubDepartment";
 import AddDepartmentMember from "@/components/page/organization/dialog/AddDepartmentMember";
-import ChooseDepartment from "@/components/page/organization/dialog/ChooseDepartment";
 import DeleteEmployee from "@/components/page/organization/drawer/DeleteEmployee";
 import UpdateDepartment from "@/components/page/organization/dialog/UpdateDepartment.vue";
+import TransferMember from "@/components/page/organization/TransferMember.vue";
 import api from "@/api/api";
 
 export default {
     name: "Member",
-    components: {UpdateDepartment, DeleteEmployee, AddDepartmentMember, AddSubDepartment, ChooseDepartment},
+    components: {
+        UpdateDepartment,
+        DeleteEmployee,
+        AddDepartmentMember,
+        AddSubDepartment,
+        TransferMember
+    },
     data() {
         return {
             defaultProps: {
                 children: 'children',
-                label: 'label'
+                label: 'label',
+                id: 'id',
             },
             input: '',
             currentOrg: null,
@@ -167,9 +164,7 @@ export default {
             targetDepartment: null,
 
             showTransferDepartmentDialog: false,
-            showTransferChooseDepartmentDialog: false,
             employeeToTransfer: null,
-            transferDepartments: [],
         }
     },
     computed: {
@@ -214,9 +209,6 @@ export default {
     methods: {
         handleNodeClick(data) {
             console.log('node click', data)
-            if (!data._orgWithChildren && data.id) {
-                this.orgStore.queryOrganizationWithChildren(data)
-            }
             this.currentOrg = data;
         },
         async handleNodeExpand(data) {
@@ -225,10 +217,9 @@ export default {
         async loadNode(node, resolve) {
             console.log('to load data', node)
             let data = node.data;
+            // node.childNodes = [];
             if ((!data._orgWithChildren && data.id) || data._force) {
                 await this.orgStore.queryOrganizationWithChildren(data)
-                console.log('load data', data);
-                this.currentOrg = data;
                 resolve(data.children);
             } else {
                 resolve(data.children ? data.children : data);
@@ -246,23 +237,13 @@ export default {
         },
         handleTransferDepartment(data) {
             this.employeeToTransfer = data;
-            this.transferDepartments = [];
             this.showTransferDepartmentDialog = true;
         },
-        onCheckTransferDepartment(departments) {
-            this.transferDepartments = departments;
-            this.showTransferChooseDepartmentDialog = false;
-        },
-        onUncheckTransferDepartment(department) {
-            this.transferDepartments = this.transferDepartments.filter(d => d.id !== department.id);
-        },
-        confirmTransferDepartment() {
-            if (this.employeeToTransfer && this.transferDepartments.length > 0) {
-                let targetOrgIds = this.transferDepartments.map(d => d.id);
-                this.orgStore.transferEmployee(this.employeeToTransfer.employeeId, targetOrgIds)
+        onTransferSuccess() {
+            this.showTransferDepartmentDialog = false;
+            if (this.currentOrg) {
+                this.orgStore.queryOrganizationWithChildren(this.currentOrg);
             }
-            this.showTransferDepartmentDialog = false
-            this.currentOrg = null;
         },
         importMember() {
             this.$router.push('/organization/departmentanduser/import-member')

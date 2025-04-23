@@ -49,7 +49,7 @@ export const useOrgStore = defineStore('org', {
       let orgWC = Object.assign(new OrganizationWithChildren(), result);
       org._orgWithChildren = orgWC;
       org.buildRenderData(orgWC);
-      console.log('queryOrganizationWithChildren', org.id);
+      console.log('queryOrganizationWithChildren', org.id, orgWC, org);
     },
 
     async createEmployee({employee, targetOrg}) {
