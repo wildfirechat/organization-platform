@@ -41,6 +41,10 @@ export const useOrgStore = defineStore('org', {
     },
 
     async queryOrganizationWithChildren(org) {
+      if(!org.parentId){
+        this.getRootOrganizationsWithChildren()
+        return
+      }
       let result = await Api.queryOrganizationWithChildren(org.id);
       let orgWC = Object.assign(new OrganizationWithChildren(), result);
       org._orgWithChildren = orgWC;

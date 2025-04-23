@@ -126,7 +126,7 @@ export default {
                 this.$message.error('请选择至少一个部门');
                 return;
             }
-            
+
             this.checkedDepartments.forEach(department => {
                 this.orgStore.createEmployee({
                     employee: this.employee,

@@ -1,7 +1,7 @@
 <template>
     <el-container style="height: 100%">
         <el-aside style="border-right: 1px solid #e6e6e6; padding-right: 20px">
-            <el-input v-model="input" placeholder="请输入姓名、邮箱或手机号"></el-input>
+            <el-input v-if="false" v-model="input" placeholder="请输入姓名、邮箱或手机号"></el-input>
             <el-tree v-if="!input" :data="rootOrganizations" ref="tree" :expand-on-click-node="true"
                      :props="defaultProps" :render-after-expand='false' lazy :load="loadNode" @node-click="handleNodeClick"
                      @node-expand="handleNodeExpand">
