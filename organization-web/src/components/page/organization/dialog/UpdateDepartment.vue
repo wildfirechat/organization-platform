@@ -1,9 +1,9 @@
 <template>
     <div>
         <p class="title">更新部门</p>
-        <el-form label-position="right" :model="updatedOrganization" size="medium" class="demo-form-inline">
+        <el-form label-position="right" size="medium" class="demo-form-inline">
             <el-form-item label="部门名称">
-                <el-input v-model.trim="updatedOrganization.name" placeholder="部门名称"></el-input>
+                <el-input v-model.trim="orgName" placeholder="部门名称"></el-input>
             </el-form-item>
             <el-form-item label="部门负责人">
                 <el-input disabled>
@@ -26,8 +26,10 @@
         </div>
 
         <!-- 集成 ChooseMember 对话框 -->
-        <el-dialog :visible.sync="showChooseMemberDialog" append-to-body title="选择成员" destroy-on-close>
-            <ChooseMember :initial-checked-members="initialCheckedMembers" :max-choose-count="1"
+        <el-dialog :visible.sync="showChooseMemberDialog" append-to-body title="选择成员">
+            <ChooseMember v-if="showChooseMemberDialog"
+                          :initial-checked-members="initialCheckedMembers"
+                          :max-choose-count="1"
                           :on-cancel="() => this.showChooseMemberDialog = false" :on-confirm="onCheckMember"/>
         </el-dialog>
     </div>
@@ -59,17 +61,15 @@ export default {
 
     data() {
         return {
-            updatedOrganization: {
-                name: this.currentDepartment.name,
-            },
             createOrganizationGroup: !this.currentDepartment.groupId,
+            orgName: this.currentDepartment.name,
             manager: null,
             showChooseMemberDialog: false,
         }
     },
     computed: {
         confirmButtonEnable() {
-            return this.updatedOrganization.name && this.manager;
+            return this.orgName && this.computedManager;
         },
         initialCheckedMembers() {
             return this.manager ? [this.manager.employeeId] : [];
@@ -91,14 +91,13 @@ export default {
             }
         },
         onConfirm() {
-            if (!this.manager) {
+            if (!this.computedManager) {
                 this.$message.error('请选择部门负责人');
                 return;
             }
 
-            this.updatedOrganization.managerId = this.manager.employeeId;
-            this.currentDepartment.name = this.updatedOrganization.name;
-            this.currentDepartment.managerId = this.manager.employeeId;
+            this.currentDepartment.name = this.orgName;
+            this.currentDepartment.managerId = this.computedManager.employeeId;
 
             this.orgStore.updateOrganization(this.currentDepartment)
                 .then(res => {

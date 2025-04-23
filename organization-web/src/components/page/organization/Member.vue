@@ -86,27 +86,30 @@
         </el-drawer>
 
         <el-dialog :visible.sync="showUpdateDepartmentDialog"
-                   destroy-on-close
                    :before-close="() => this.showUpdateDepartmentDialog = false">
-            <UpdateDepartment :current-department="targetDepartment" :on-update-department="onUpdateDepartment"/>
+            <UpdateDepartment v-if="showUpdateDepartmentDialog" :current-department="targetDepartment" :on-update-department="onUpdateDepartment"/>
         </el-dialog>
 
         <el-dialog :visible.sync="showAddSubDepartmentDialog"
-                   destroy-on-close
                    :before-close="() => this.showAddSubDepartmentDialog = false">
-            <AddSubDepartment :parent-department="currentOrg" :on-add-department="onAddDepartment"/>
+            <AddSubDepartment
+                v-if="showAddSubDepartmentDialog"
+                :parent-department="currentOrg" :on-add-department="onAddDepartment"/>
         </el-dialog>
 
         <el-dialog :visible.sync="showAddDepartmentMemberDialog" :close-on-click-modal="false"
-                   destroy-on-close
                    :before-close="() => { this.showAddDepartmentMemberDialog = false; this.checkedDepartments = [] }">
-            <AddDepartmentMember :checked-departments="checkedDepartments"
+            <AddDepartmentMember v-if="showAddDepartmentMemberDialog"
+                                 :checked-departments="checkedDepartments"
                                  :on-cancel="() => this.showAddDepartmentMemberDialog = false"
                                  :on-choose-department="() => this.showChooseDepartmentDialog = true"
                                  :on-uncheck-department="onUncheckDepartment"/>
             <el-dialog :visible.sync="showChooseDepartmentDialog" append-to-body>
-                <ChooseDepartment :target-department="currentOrg"
-                                  :on-cancel="() => this.showChooseDepartmentDialog = false" :on-confirm="onCheckDepartment"/>
+                <ChooseDepartment
+                    v-if="showChooseDepartmentDialog"
+                    :target-department="currentOrg"
+                    :on-cancel="() => this.showChooseDepartmentDialog = false"
+                    :on-confirm="onCheckDepartment"/>
             </el-dialog>
         </el-dialog>
 
