@@ -104,7 +104,7 @@ export default {
 
     methods: {
         go2home() {
-            const defaultPath = this.rootOrganizations.length > 0 ? '/organization/departmentanduser' : '/organization//import-member';
+            const defaultPath = this.rootOrganizations.length > 0 ? '/organization/departmentanduser' : '/organization/departmentanduser/import-member';
             if (this.$router.history.current.path !== defaultPath) {
                 this.$router.replace(defaultPath);
             }
