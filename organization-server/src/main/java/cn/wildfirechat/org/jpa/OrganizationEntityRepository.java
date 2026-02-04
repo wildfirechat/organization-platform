@@ -17,8 +17,8 @@ public interface OrganizationEntityRepository extends CrudRepository<Organizatio
     @Query(value = "select * from t_organization where parent_id  = 0", nativeQuery = true)
     List<OrganizationEntity> findRootEntity();
 
-    @Query(value = "select * from t_organization where name like %?1%",
-            countQuery = "select count(*) from t_organization where name like %?1%",
+    @Query(value = "select * from t_organization where name like CONCAT('%',?1,'%')",
+            countQuery = "select count(*) from t_organization where name like CONCAT('%',?1,'%')",
             nativeQuery = true)
     Page<OrganizationEntity> searchEntity(String keyword, Pageable pageable);
 
