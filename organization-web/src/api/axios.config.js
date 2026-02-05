@@ -3,7 +3,8 @@ import App from '../main'
 // axios实例
 const instance = Axios.create({
     // 针对实际情况进行修改
-    baseURL: 'http://localhost:8880/api',
+    //baseURL: 'http://localhost:8880/api',
+    baseURL: '/api',
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json;charset=utf-8',

@@ -1,5 +1,5 @@
 set -e
-cd organization-work
+cd organization-web
 npm install
 npm run build
 cd ..
