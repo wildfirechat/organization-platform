@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence xmlns="http://xmlns.jcp.org/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence
+                                 http://xmlns.jcp.org/xml/ns/persistence/persistence_2_2.xsd"
+             version="2.2">
+
+    <persistence-unit name="organization-persistence" transaction-type="RESOURCE_LOCAL">
+        <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
+
+        <class>cn.wildfirechat.org.jpa.OrganizationEntity</class>
+        <class>cn.wildfirechat.org.jpa.EmployeeEntity</class>
+        <class>cn.wildfirechat.org.jpa.RelationshipEntity</class>
+        <class>cn.wildfirechat.org.jpa.User</class>
+        <class>cn.wildfirechat.org.jpa.OperationLogEntity</class>
+        <class>cn.wildfirechat.org.jpa.ShiroSession</class>
+
+        <properties>
+            <!-- 达梦数据库配置 -->
+            <property name="javax.persistence.jdbc.driver" value="dm.jdbc.driver.DmDriver"/>
+            <property name="javax.persistence.jdbc.url" value="jdbc:dm://192.168.1.6:5237"/>
+            <property name="javax.persistence.jdbc.user" value="SYSDBA"/>
+            <property name="javax.persistence.jdbc.password" value="Wfc123!@"/>
+
+            <!-- Hibernate 配置 -->
+            <property name="hibernate.dialect" value="org.hibernate.dialect.DmDialect"/>
+            <property name="hibernate.hbm2ddl.auto" value="update"/>
+            <property name="hibernate.show_sql" value="true"/>
+            <property name="hibernate.format_sql" value="true"/>
+
+<!-- 备用 H2 内存数据库配置（用于本地无达梦环境时测试） -->
+<!--
+            <property name="javax.persistence.jdbc.driver" value="org.h2.Driver"/>
+            <property name="javax.persistence.jdbc.url" value="jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL"/>
+            <property name="javax.persistence.jdbc.user" value="sa"/>
+            <property name="javax.persistence.jdbc.password" value=""/>
+            <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect"/>
+            <property name="hibernate.hbm2ddl.auto" value="create-drop"/>
+            <property name="hibernate.show_sql" value="false"/>
+-->
+        </properties>
+    </persistence-unit>
+
+</persistence>
