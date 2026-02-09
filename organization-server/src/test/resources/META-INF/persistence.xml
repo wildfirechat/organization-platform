@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Database Configuration for Repository Tests
+    数据库测试配置文件
+
+    Usage: mvn test -Ddb.type=<database_type>
+
+    Supported database types:
+    - dameng : 达梦数据库 (默认)
+    - h2     : H2 内存数据库
+    - mysql  : MySQL 数据库
+-->
 <persistence xmlns="http://xmlns.jcp.org/xml/ns/persistence"
              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
              xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence
@@ -15,30 +26,35 @@
         <class>cn.wildfirechat.org.jpa.OperationLogEntity</class>
         <class>cn.wildfirechat.org.jpa.ShiroSession</class>
 
-        <properties>
-            <!-- 达梦数据库配置 -->
-            <property name="javax.persistence.jdbc.driver" value="dm.jdbc.driver.DmDriver"/>
-            <property name="javax.persistence.jdbc.url" value="jdbc:dm://192.168.1.6:5237"/>
-            <property name="javax.persistence.jdbc.user" value="SYSDBA"/>
-            <property name="javax.persistence.jdbc.password" value="Wfc123!@"/>
+        <!--
+            注意：实际测试时，数据库配置由 RepositoryTest.java 中的 Java 代码控制
+            此处配置仅作为参考，实际运行时会通过 -Ddb.type 参数选择数据库
+        -->
 
-            <!-- Hibernate 配置 -->
-            <property name="hibernate.dialect" value="org.hibernate.dialect.DmDialect"/>
-            <property name="hibernate.hbm2ddl.auto" value="update"/>
-            <property name="hibernate.show_sql" value="true"/>
-            <property name="hibernate.format_sql" value="true"/>
+        <!-- ========== 达梦数据库 (默认) ==========
+        <property name="javax.persistence.jdbc.driver" value="dm.jdbc.driver.DmDriver"/>
+        <property name="javax.persistence.jdbc.url" value="jdbc:dm://192.168.1.6:5237"/>
+        <property name="javax.persistence.jdbc.user" value="SYSDBA"/>
+        <property name="javax.persistence.jdbc.password" value="Wfc123!@"/>
+        <property name="hibernate.dialect" value="org.hibernate.dialect.DmDialect"/>
+        -->
 
-<!-- 备用 H2 内存数据库配置（用于本地无达梦环境时测试） -->
-<!--
-            <property name="javax.persistence.jdbc.driver" value="org.h2.Driver"/>
-            <property name="javax.persistence.jdbc.url" value="jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL"/>
-            <property name="javax.persistence.jdbc.user" value="sa"/>
-            <property name="javax.persistence.jdbc.password" value=""/>
-            <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect"/>
-            <property name="hibernate.hbm2ddl.auto" value="create-drop"/>
-            <property name="hibernate.show_sql" value="false"/>
--->
-        </properties>
+        <!-- ========== H2 内存数据库 (用于本地快速测试) ==========
+        <property name="javax.persistence.jdbc.driver" value="org.h2.Driver"/>
+        <property name="javax.persistence.jdbc.url" value="jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL"/>
+        <property name="javax.persistence.jdbc.user" value="sa"/>
+        <property name="javax.persistence.jdbc.password" value=""/>
+        <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect"/>
+        -->
+
+        <!-- ========== MySQL 数据库 ==========
+        <property name="javax.persistence.jdbc.driver" value="com.mysql.cj.jdbc.Driver"/>
+        <property name="javax.persistence.jdbc.url" value="jdbc:mysql://localhost:3306/organization_server?serverTimezone=UTC&useSSL=false"/>
+        <property name="javax.persistence.jdbc.user" value="root"/>
+        <property name="javax.persistence.jdbc.password" value="123456"/>
+        <property name="hibernate.dialect" value="org.hibernate.dialect.MySQLDialect"/>
+        -->
+
     </persistence-unit>
 
 </persistence>

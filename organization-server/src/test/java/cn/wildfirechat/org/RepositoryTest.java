@@ -13,65 +13,100 @@ import java.util.*;
 import static org.junit.Assert.*;
 
 /**
- * Repository Tests with Dameng Database
- * Tests all database operations using Dameng database
+ * Repository Tests with Multiple Databases
+ * Supports Dameng, H2, and MySQL databases
+ *
+ * Usage:
+ *   -Ddb.type=dameng  : Use Dameng database (default)
+ *   -Ddb.type=h2      : Use H2 in-memory database
+ *   -Ddb.type=mysql   : Use MySQL database
  */
 public class RepositoryTest {
 
     private EntityManagerFactory emf;
     private EntityManager em;
-    private boolean useDameng = true;
+    private String dbType;
+    private boolean initialized = false;
 
     @Before
     public void setUp() {
-        if (useDameng) {
-            // 达梦数据库配置
-            Map<String, String> props = new HashMap<>();
-            props.put("javax.persistence.jdbc.driver", "dm.jdbc.driver.DmDriver");
-            props.put("javax.persistence.jdbc.url", "jdbc:dm://192.168.1.6:5237");
-            props.put("javax.persistence.jdbc.user", "SYSDBA");
-            props.put("javax.persistence.jdbc.password", "Wfc123!@");
-            props.put("hibernate.dialect", "org.hibernate.dialect.DmDialect");
-            props.put("hibernate.hbm2ddl.auto", "update");
-            props.put("hibernate.show_sql", "true");
-            props.put("hibernate.format_sql", "true");
+        // Get database type from system property, default to dameng
+        dbType = System.getProperty("db.type", "dameng");
 
-            emf = Persistence.createEntityManagerFactory("organization-persistence", props);
-        } else {
-            // H2 备用配置（无达梦环境时使用）
-            Map<String, String> props = new HashMap<>();
-            props.put("javax.persistence.jdbc.url", "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
-            props.put("javax.persistence.jdbc.driver", "org.h2.Driver");
-            props.put("javax.persistence.jdbc.user", "sa");
-            props.put("javax.persistence.jdbc.password", "");
-            props.put("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
-            props.put("hibernate.hbm2ddl.auto", "create-drop");
-            props.put("hibernate.show_sql", "false");
+        System.out.println("========================================");
+        System.out.println("Using database: " + dbType.toUpperCase());
+        System.out.println("========================================");
 
-            emf = Persistence.createEntityManagerFactory("organization-persistence", props);
+        Map<String, String> props = new HashMap<>();
+
+        switch (dbType.toLowerCase()) {
+            default:
+            case "h2":
+                // H2 内存数据库配置
+                props.put("javax.persistence.jdbc.url", "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
+                props.put("javax.persistence.jdbc.driver", "org.h2.Driver");
+                props.put("javax.persistence.jdbc.user", "sa");
+                props.put("javax.persistence.jdbc.password", "");
+                props.put("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
+                props.put("hibernate.hbm2ddl.auto", "create-drop");
+                props.put("hibernate.show_sql", "false");
+                break;
+
+            case "mysql":
+                // MySQL 数据库配置
+                // 需要先创建数据库: CREATE DATABASE organization_server CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+                props.put("javax.persistence.jdbc.url", "jdbc:mysql://localhost:3306/organization_server?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true");
+                props.put("javax.persistence.jdbc.driver", "com.mysql.cj.jdbc.Driver");
+                props.put("javax.persistence.jdbc.user", "root");
+                props.put("javax.persistence.jdbc.password", "123456");
+                props.put("hibernate.dialect", "org.hibernate.dialect.MySQLDialect");
+                props.put("hibernate.hbm2ddl.auto", "update");
+                props.put("hibernate.show_sql", "true");
+                props.put("hibernate.format_sql", "true");
+                break;
+
+            case "dameng":
+                // 达梦数据库配置
+                props.put("javax.persistence.jdbc.driver", "dm.jdbc.driver.DmDriver");
+                props.put("javax.persistence.jdbc.url", "jdbc:dm://192.168.1.6:5237");
+                props.put("javax.persistence.jdbc.user", "SYSDBA");
+                props.put("javax.persistence.jdbc.password", "Wfc123!@");
+                props.put("hibernate.dialect", "org.hibernate.dialect.DmDialect");
+                props.put("hibernate.hbm2ddl.auto", "update");
+                props.put("hibernate.show_sql", "true");
+                props.put("hibernate.format_sql", "true");
+                break;
         }
 
-        em = emf.createEntityManager();
+        try {
+            emf = Persistence.createEntityManagerFactory("organization-persistence", props);
+            em = emf.createEntityManager();
 
-        // 清理测试数据（达梦数据库需要）
-        if (useDameng) {
-            try {
-                em.getTransaction().begin();
-                // 删除关系表数据
-                em.createNativeQuery("DELETE FROM t_relationship").executeUpdate();
-                // 删除员工表数据
-                em.createNativeQuery("DELETE FROM t_employee").executeUpdate();
-                // 删除组织表数据
-                em.createNativeQuery("DELETE FROM t_organization").executeUpdate();
-                // 删除用户表数据
-                em.createNativeQuery("DELETE FROM t_user").executeUpdate();
-                // 删除日志表数据
-                em.createNativeQuery("DELETE FROM t_optlog").executeUpdate();
-                em.getTransaction().commit();
-            } catch (Exception e) {
-                if (em.getTransaction().isActive()) {
-                    em.getTransaction().rollback();
-                }
+            // 清理测试数据（仅达梦和 MySQL 需要）
+            if (!"h2".equals(dbType)) {
+                cleanupTestData();
+            }
+            initialized = true;
+        } catch (Exception e) {
+            initialized = false;
+            throw new RuntimeException("Failed to initialize database connection: " + e.getMessage(), e);
+        }
+    }
+
+    private void cleanupTestData() {
+        if (em == null || !em.isOpen()) return;
+
+        try {
+            em.getTransaction().begin();
+            em.createNativeQuery("DELETE FROM t_relationship").executeUpdate();
+            em.createNativeQuery("DELETE FROM t_employee").executeUpdate();
+            em.createNativeQuery("DELETE FROM t_organization").executeUpdate();
+            em.createNativeQuery("DELETE FROM t_user").executeUpdate();
+            em.createNativeQuery("DELETE FROM t_optlog").executeUpdate();
+            em.getTransaction().commit();
+        } catch (Exception e) {
+            if (em.getTransaction().isActive()) {
+                em.getTransaction().rollback();
             }
         }
     }
