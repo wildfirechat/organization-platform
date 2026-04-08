@@ -21,4 +21,5 @@ public class EmployeePojo {
     public int sort;
     public long createDt;
     public long updateDt;
+    public String password;
 }

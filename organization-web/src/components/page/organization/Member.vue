@@ -75,6 +75,9 @@
                         <el-button class="f-btn" @click="handleDeleteEmployee(scope.row)" type="text"
                                    size="small">操作离职
                         </el-button>
+                        <el-button class="f-btn" @click="handleUpdatePassword(scope.row)" type="text"
+                                   size="small">修改密码
+                        </el-button>
                     </template>
                 </el-table-column>
             </el-table>
@@ -119,6 +122,15 @@
                 :on-cancel="() => this.showTransferDepartmentDialog = false"
                 :on-success="onTransferSuccess"/>
         </el-dialog>
+
+        <el-dialog title="修改密码" :visible.sync="showUpdatePasswordDialog" :close-on-click-modal="false"
+                   :before-close="() => { this.showUpdatePasswordDialog = false }">
+            <UpdateEmployeePwd
+                v-if="showUpdatePasswordDialog"
+                :employee="employeeToUpdatePassword"
+                :on-cancel="() => this.showUpdatePasswordDialog = false"
+                :on-success="onUpdatePasswordSuccess"/>
+        </el-dialog>
     </el-container>
 </template>
 
@@ -129,6 +141,7 @@ import AddDepartmentMember from "@/components/page/organization/dialog/AddDepart
 import DeleteEmployee from "@/components/page/organization/drawer/DeleteEmployee";
 import UpdateDepartment from "@/components/page/organization/dialog/UpdateDepartment.vue";
 import TransferMember from "@/components/page/organization/TransferMember.vue";
+import UpdateEmployeePwd from "@/components/page/organization/UpdateEmployeePwd.vue";
 import api from "@/api/api";
 
 export default {
@@ -138,7 +151,8 @@ export default {
         DeleteEmployee,
         AddDepartmentMember,
         AddSubDepartment,
-        TransferMember
+        TransferMember,
+        UpdateEmployeePwd
     },
     data() {
         return {
@@ -165,6 +179,8 @@ export default {
 
             showTransferDepartmentDialog: false,
             employeeToTransfer: null,
+            showUpdatePasswordDialog: false,
+            employeeToUpdatePassword: null,
         }
     },
     computed: {
@@ -244,6 +260,14 @@ export default {
             if (this.currentOrg) {
                 this.orgStore.queryOrganizationWithChildren(this.currentOrg);
             }
+        },
+        handleUpdatePassword(data) {
+            this.employeeToUpdatePassword = data;
+            this.showUpdatePasswordDialog = true;
+        },
+        onUpdatePasswordSuccess() {
+            this.showUpdatePasswordDialog = false;
+            this.employeeToUpdatePassword = null;
         },
         importMember() {
             this.$router.push('/organization/departmentanduser/import-member')

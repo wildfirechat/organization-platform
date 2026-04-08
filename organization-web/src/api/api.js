@@ -49,6 +49,9 @@ export default {
     async udpatePwd(params) {
         return axios.post('/update_pwd', params)
     },
+    async updateEmployeePassword(employeeId, password) {
+        return axios.post('/employee/update_password', {employeeId, password});
+    },
 
     downloadTemplateUrl() {
         return instance.defaults.baseURL + '/template';

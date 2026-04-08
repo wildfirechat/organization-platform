@@ -38,6 +38,7 @@ public interface Service {
     RestResult queryListEmployee(List<String> employeeIds);
     RestResult deleteEmployee(String employeeId, boolean destroyIMUser) throws Exception;
     RestResult searchEmployee(String keyword, int organizationId, boolean root, int page, int count);
+    RestResult updateEmployeePassword(String employeeId, String password) throws Exception;
 
     RestResult queryEmployeeRelationship(String employeeId);
     RestResult importOrganization(MultipartFile file);

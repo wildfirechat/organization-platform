@@ -9,6 +9,7 @@ import java.util.List;
 public class EmployeeModel {
     public List<OrganizationTree> organizationTrees;
     public EmployeeEntity employee;
+    public String password;
 
     public EmployeeModel(EmployeeEntity employee) {
         this.employee = employee;

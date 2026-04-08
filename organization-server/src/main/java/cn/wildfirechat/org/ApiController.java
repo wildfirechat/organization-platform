@@ -2,6 +2,7 @@ package cn.wildfirechat.org;
 
 import cn.wildfirechat.org.exception.IMServerException;
 import cn.wildfirechat.org.pojo.*;
+import cn.wildfirechat.org.pojo.UpdateEmployeePasswordRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -349,6 +350,20 @@ public class ApiController {
     public Object deleteEmployee(@RequestBody DeleteEmployeePojo pojo) throws Exception {
         mService.recordOpLog("删除员工", pojo.employeeId + "," + pojo.destroyIMUser);
         return mService.deleteEmployee(pojo.employeeId, pojo.destroyIMUser);
+    }
+
+    /**
+     * 修改员工密码
+     *
+     * @param request
+     * @return
+     * @throws Exception
+     */
+    @Transactional
+    @PostMapping(value = "employee/update_password", produces = "application/json;charset=UTF-8")
+    public Object updateEmployeePassword(@RequestBody UpdateEmployeePasswordRequest request) throws Exception {
+        mService.recordOpLog("修改员工密码", request.getEmployeeId());
+        return mService.updateEmployeePassword(request.getEmployeeId(), request.getPassword());
     }
 
     /**

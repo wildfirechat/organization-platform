@@ -48,6 +48,9 @@
                     </el-upload>
                 </el-input>
             </el-form-item>
+            <el-form-item label="密码">
+                <el-input v-model="employee.password" type="password" placeholder="请输入密码" show-password></el-input>
+            </el-form-item>
         </el-form>
         <div class="action-container">
             <el-button @click="onCancel">取消</el-button>

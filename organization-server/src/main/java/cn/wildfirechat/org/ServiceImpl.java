@@ -5,6 +5,8 @@ import cn.wildfirechat.org.exception.IMServerException;
 import cn.wildfirechat.org.exception.OrganizationDataCorruptionException;
 import cn.wildfirechat.org.exception.OrganizationNoExistException;
 import cn.wildfirechat.org.jpa.*;
+import cn.wildfirechat.org.jpa.secondary.UserPassword;
+import cn.wildfirechat.org.jpa.secondary.UserPasswordRepository;
 import cn.wildfirechat.org.model.EmployeeModel;
 import cn.wildfirechat.org.model.OrganizationTree;
 import cn.wildfirechat.org.pojo.*;
@@ -113,6 +115,9 @@ public class ServiceImpl implements Service {
 
     @Autowired
     private OperationLogEntityRepository operationLogEntityRepository;
+
+    @Autowired(required = false)
+    private UserPasswordRepository userPasswordRepository;
 
     private RateLimiter rateLimiter;
 
@@ -1027,12 +1032,21 @@ public class ServiceImpl implements Service {
             }
         }
 
+        InputOutputUserInfo inputOutputUserInfo = new InputOutputUserInfo();
+        inputOutputUserInfo.setUserId(employeePojo.employeeId);
+        inputOutputUserInfo.setDisplayName(employeePojo.name);
+        inputOutputUserInfo.setGender(employeePojo.gender);
+        inputOutputUserInfo.setPortrait(employeePojo.portraitUrl);
+        inputOutputUserInfo.setMobile(employeePojo.mobile);
+        inputOutputUserInfo.setEmail(employeePojo.email);
+
         try {
             boolean needCreateUserInImServer;
             if (!StringUtils.isNullOrEmpty(employeePojo.employeeId)) {
                 IMResult<InputOutputUserInfo> outputUserInfoIMResult = UserAdmin.getUserByUserId(employeePojo.employeeId);
                 if (outputUserInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
                     needCreateUserInImServer = false;
+                    inputOutputUserInfo.setName(outputUserInfoIMResult.getResult().getName());
                 } else if (outputUserInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_NOT_EXIST) {
                     needCreateUserInImServer = true;
                 } else {
@@ -1043,6 +1057,8 @@ public class ServiceImpl implements Service {
                     IMResult<InputOutputUserInfo> outputUserInfoIMResult = UserAdmin.getUserByMobile(employeePojo.mobile);
                     if (outputUserInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
                         employeePojo.employeeId = outputUserInfoIMResult.result.getUserId();
+                        inputOutputUserInfo.setName(outputUserInfoIMResult.getResult().getName());
+                        inputOutputUserInfo.setUserId(employeePojo.employeeId);
                         needCreateUserInImServer = false;
                     } else if (outputUserInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_NOT_EXIST) {
                         needCreateUserInImServer = true;
@@ -1054,13 +1070,6 @@ public class ServiceImpl implements Service {
                 }
             }
 
-            InputOutputUserInfo inputOutputUserInfo = new InputOutputUserInfo();
-            inputOutputUserInfo.setUserId(employeePojo.employeeId);
-            inputOutputUserInfo.setDisplayName(employeePojo.name);
-            inputOutputUserInfo.setGender(employeePojo.gender);
-            inputOutputUserInfo.setPortrait(employeePojo.portraitUrl);
-            inputOutputUserInfo.setMobile(employeePojo.mobile);
-            inputOutputUserInfo.setEmail(employeePojo.email);
             if (needCreateUserInImServer) {
                 inputOutputUserInfo.setName(UUID.randomUUID().toString());
                 IMResult<OutputCreateUser> outputCreateUserIMResult = UserAdmin.createUser(inputOutputUserInfo);
@@ -1088,6 +1097,11 @@ public class ServiceImpl implements Service {
         employeeEntityRepository.save(entity);
 
         addEmployeeToOrganization(optional.get(), employeePojo.employeeId);
+
+        // 如果有密码，保存到第二个数据源
+        if (!StringUtils.isNullOrEmpty(employeePojo.password)) {
+            saveUserPassword(employeePojo.employeeId, employeePojo.password);
+        }
 
         CreateEmployeeResult createEmployeeResult = new CreateEmployeeResult();
         createEmployeeResult.employeeId = employeePojo.employeeId;
@@ -1455,6 +1469,7 @@ public class ServiceImpl implements Service {
                     String joinTime = getStringValue(row.getCell(index++));
                     String title = getStringValue(row.getCell(index++));
                     String level = getStringValue(row.getCell(index++));
+                    String password = getStringValue(row.getCell(index++));
 
                     //检查电话号码是否存在检查是否重复
                     if (StringUtils.isNullOrEmpty(mobile)) {
@@ -1499,6 +1514,7 @@ public class ServiceImpl implements Service {
 
                     //创建用户model
                     employeeModel = new EmployeeModel(employeeEntity);
+                    employeeModel.password = password;
                     employeeMobileMap.put(mobile, employeeModel);
                     if (!StringUtils.isNullOrEmpty(email)) {
                         employeeEmailMap.put(email, employeeModel);
@@ -1668,8 +1684,56 @@ public class ServiceImpl implements Service {
                     employeeModel.organizationTrees.forEach(tree -> oids.add(tree.entity.id));
                     moveEmployee(createEmployeeResult.employeeId, oids);
                 }
+                // 保存密码到第二个数据源（im-app_server数据库）
+                if (!StringUtils.isNullOrEmpty(employeeModel.password)) {
+                    saveUserPassword(createEmployeeResult.employeeId, employeeModel.password);
+                }
             }
         }
+    }
+
+    private void saveUserPassword(String userId, String password) throws Exception {
+        if (userPasswordRepository == null) {
+            LOG.warn("Secondary datasource not configured, skip saving password for user: {}", userId);
+            return;
+        }
+        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-1");
+        digest.reset();
+        String salt = java.util.UUID.randomUUID().toString();
+        digest.update(salt.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        byte[] hashed = digest.digest(password.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String hashedPwd = java.util.Base64.getEncoder().encodeToString(hashed);
+        
+        UserPassword up = new UserPassword(userId, hashedPwd, salt);
+        userPasswordRepository.save(up);
+    }
+
+    @Override
+    public RestResult updateEmployeePassword(String employeeId, String password) throws Exception {
+        // 检查员工是否存在
+        Optional<EmployeeEntity> optionalEmployee = employeeEntityRepository.findById(employeeId);
+        if (!optionalEmployee.isPresent()) {
+            return RestResult.error(ERROR_NOT_EXIST);
+        }
+        
+        // 检查第二个数据源是否配置
+        if (userPasswordRepository == null) {
+            LOG.warn("Secondary datasource not configured, cannot update password for user: {}", employeeId);
+            return RestResult.error(ERROR_SERVER_ERROR);
+        }
+        
+        // 更新密码
+        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-1");
+        digest.reset();
+        String salt = java.util.UUID.randomUUID().toString();
+        digest.update(salt.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        byte[] hashed = digest.digest(password.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String hashedPwd = java.util.Base64.getEncoder().encodeToString(hashed);
+        
+        UserPassword up = new UserPassword(employeeId, hashedPwd, salt);
+        userPasswordRepository.save(up);
+        
+        return RestResult.ok(null);
     }
 
     @Override
