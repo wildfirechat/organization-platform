@@ -128,28 +128,35 @@ public class ServiceImpl implements Service {
     }
 
     public RestResult login(HttpServletResponse httpResponse, String account, String password) {
+        LOG.info("Service: login, account: {}", account);
         Subject subject = SecurityUtils.getSubject();
         UsernamePasswordToken token = new UsernamePasswordToken(account, password);
 
         try {
             subject.login(token);
         } catch (UnknownAccountException uae) {
+            LOG.warn("Login failed - unknown account: {}", account);
             return RestResult.error(ERROR_CODE_ACCOUNT_NOT_EXIST);
         } catch (IncorrectCredentialsException ice) {
+            LOG.warn("Login failed - incorrect credentials: {}", account);
             return RestResult.error(RestResult.RestCode.ERROR_CODE_PASSWORD_INCORRECT);
         } catch (LockedAccountException lae) {
+            LOG.warn("Login failed - locked account: {}", account);
             return RestResult.error(RestResult.RestCode.ERROR_CODE_PASSWORD_INCORRECT);
         } catch (ExcessiveAttemptsException eae) {
+            LOG.warn("Login failed - excessive attempts: {}", account);
             return RestResult.error(RestResult.RestCode.ERROR_CODE_PASSWORD_INCORRECT);
         } catch (AuthenticationException ae) {
+            LOG.warn("Login failed - authentication error: {}", account);
             return RestResult.error(RestResult.RestCode.ERROR_CODE_PASSWORD_INCORRECT);
         }
 
         if (subject.isAuthenticated()) {
             long timeout = subject.getSession().getTimeout();
-            LOG.info("Login success " + timeout);
+            LOG.info("Login success, account: {}, timeout: {}", account, timeout);
         } else {
             token.clear();
+            LOG.warn("Login failed - not authenticated: {}", account);
             return RestResult.error(RestResult.RestCode.ERROR_CODE_PASSWORD_INCORRECT);
         }
 
@@ -162,27 +169,34 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult clientLogin(HttpServletResponse httpResponse, String authcode) {
+        LOG.info("Service: clientLogin");
         Subject subject = SecurityUtils.getSubject();
         AuthCodeToken token = new AuthCodeToken(authcode);
 
         try {
             subject.login(token);
         } catch (UnknownAccountException uae) {
+            LOG.warn("Client login failed - unknown account");
             return RestResult.error(ERROR_CODE_ACCOUNT_NOT_EXIST);
         } catch (IncorrectCredentialsException ice) {
+            LOG.warn("Client login failed - incorrect credentials");
             return RestResult.error(RestResult.RestCode.ERROR_CODE_PASSWORD_INCORRECT);
         } catch (LockedAccountException lae) {
+            LOG.warn("Client login failed - locked account");
             return RestResult.error(RestResult.RestCode.ERROR_CODE_PASSWORD_INCORRECT);
         } catch (ExcessiveAttemptsException eae) {
+            LOG.warn("Client login failed - excessive attempts");
             return RestResult.error(RestResult.RestCode.ERROR_CODE_PASSWORD_INCORRECT);
         } catch (AuthenticationException ae) {
+            LOG.warn("Client login failed - authentication error");
             return RestResult.error(RestResult.RestCode.ERROR_CODE_PASSWORD_INCORRECT);
         }
 
         if (subject.isAuthenticated()) {
             long timeout = subject.getSession().getTimeout();
-            LOG.info("Login success " + timeout);
+            LOG.info("Client login success, timeout: {}", timeout);
         } else {
+            LOG.warn("Client login failed - not authenticated");
             return RestResult.error(RestResult.RestCode.ERROR_CODE_PASSWORD_INCORRECT);
         }
 
@@ -418,8 +432,10 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult createOrganization(OrganizationPojo organizationPojo) throws Exception {
+        LOG.info("Service: createOrganization, name: {}, parentId: {}", organizationPojo.name, organizationPojo.parentId);
         //必须有部门名称
         if (StringUtils.isNullOrEmpty(organizationPojo.name)) {
+            LOG.warn("Create organization failed - name is empty");
             return RestResult.error(ERROR_INVALID_PARAMETER);
         }
 
@@ -432,6 +448,7 @@ public class ServiceImpl implements Service {
         if (organizationPojo.parentId > 0) {
             Optional<OrganizationEntity> optional = organizationEntityRepository.findById(organizationPojo.parentId);
             if (!optional.isPresent()) {
+                LOG.warn("Create organization failed - parent not exist: {}", organizationPojo.parentId);
                 return RestResult.error(ERROR_PARENT_NOT_EXIST);
             }
         }
@@ -444,6 +461,7 @@ public class ServiceImpl implements Service {
         organizationEntityRepository.save(entity);
         OrganizationId result = new OrganizationId();
         result.organizationId = entity.id;
+        LOG.info("Organization created successfully, id: {}, name: {}", entity.id, entity.name);
 
         if (!StringUtils.isNullOrEmpty(organizationPojo.managerId)) {
             // 将 manager 添加到新部门
@@ -455,11 +473,14 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult updateOrganization(OrganizationPojo organizationPojo) throws Exception {
+        LOG.info("Service: updateOrganization, id: {}, name: {}", organizationPojo.id, organizationPojo.name);
         if (organizationPojo.id <= 0) {
+            LOG.warn("Update organization failed - invalid id: {}", organizationPojo.id);
             return RestResult.error(ERROR_INVALID_PARAMETER);
         }
         Optional<OrganizationEntity> optional = organizationEntityRepository.findById(organizationPojo.id);
         if (!optional.isPresent()) {
+            LOG.warn("Update organization failed - not exist: {}", organizationPojo.id);
             return RestResult.error(ERROR_NOT_EXIST);
         }
 
@@ -484,6 +505,7 @@ public class ServiceImpl implements Service {
         String orgManagerId = optional.get().managerId;
 
         organizationEntityRepository.save(entity);
+        LOG.info("Organization updated successfully, id: {}", entity.id);
 
         if (!isEqual(entity.managerId, orgManagerId)) {
             // 将新部门 manager 加入部门
@@ -503,6 +525,7 @@ public class ServiceImpl implements Service {
                     String groupOwner = StringUtils.isNullOrEmpty(entity.managerId) ? mAdminId : entity.managerId;
                     GroupAdmin.transferGroup(mAdminId, entity.groupId, groupOwner, null, null);
                 } catch (Exception e) {
+                    LOG.error("Failed to transfer group owner, groupId: {}, newOwner: {}", entity.groupId, entity.managerId, e);
                     throw new IMServerException();
                 }
             }
@@ -512,7 +535,7 @@ public class ServiceImpl implements Service {
                 try {
                     GroupAdmin.modifyGroupInfo(mAdminId, entity.groupId, ProtoConstants.ModifyGroupInfoType.Modify_Group_Name, entity.name, null, null);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    LOG.error("Failed to modify group name, groupId: {}, name: {}", entity.groupId, entity.name, e);
                     throw new IMServerException();
                 }
             }
@@ -522,7 +545,7 @@ public class ServiceImpl implements Service {
                 try {
                     GroupAdmin.modifyGroupInfo(mAdminId, entity.groupId, ProtoConstants.ModifyGroupInfoType.Modify_Group_Portrait, entity.portraitUrl, null, null);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    LOG.error("Failed to modify group portrait, groupId: {}", entity.groupId, e);
                     throw new IMServerException();
                 }
             }
@@ -542,9 +565,11 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult moveOrganization(int id, int newParentId) throws Exception {
+        LOG.info("Service: moveOrganization, id: {}, newParentId: {}", id, newParentId);
         Optional<OrganizationEntity> optional = organizationEntityRepository.findById(id);
         if (!optional.isPresent()) {
             //组织不存在
+            LOG.warn("Move organization failed - not exist: {}", id);
             return RestResult.error(ERROR_NOT_EXIST);
         }
         OrganizationEntity entity = optional.get();
@@ -557,6 +582,7 @@ public class ServiceImpl implements Service {
             optional = organizationEntityRepository.findById(newParentId);
             if (!optional.isPresent()) {
                 //目标组织不存在
+                LOG.warn("Move organization failed - target not exist: {}", newParentId);
                 return RestResult.error(ERROR_NOT_EXIST);
             }
         }
@@ -654,6 +680,7 @@ public class ServiceImpl implements Service {
             parentOrgId = organizationEntity.id;
         }
 
+        LOG.info("Organization moved successfully, id: {}, newParentId: {}", id, newParentId);
         return RestResult.ok(null);
     }
 
@@ -664,8 +691,9 @@ public class ServiceImpl implements Service {
 
         try {
             GroupAdmin.kickoffGroupMembers(mAdminId, groupId, new ArrayList<>(members), null, null);
+            LOG.info("Quit group success, groupId: {}, members count: {}", groupId, members.size());
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Quit group failed, groupId: {}", groupId, e);
             throw new IMServerException();
         }
     }
@@ -690,16 +718,19 @@ public class ServiceImpl implements Service {
 
         try {
             GroupAdmin.addGroupMembers(mAdminId, groupId, pojoGroupMembers, null, null);
+            LOG.info("Add group members success, groupId: {}, members count: {}", groupId, members.size());
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Add group members failed, groupId: {}", groupId, e);
             throw new IMServerException();
         }
     }
 
     @Override
     public RestResult queryOrganization(int id) {
+        LOG.debug("Service: queryOrganization, id: {}", id);
         Optional<OrganizationEntity> optional = organizationEntityRepository.findById(id);
         if (!optional.isPresent()) {
+            LOG.warn("Query organization failed - not exist: {}", id);
             return RestResult.error(ERROR_NOT_EXIST);
         }
         return RestResult.ok(convertOrganization(optional.get()));
@@ -781,12 +812,15 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult deleteOrganization(int id) throws Exception {
+        LOG.info("Service: deleteOrganization, id: {}", id);
         Optional<OrganizationEntity> optional = organizationEntityRepository.findById(id);
         if (!optional.isPresent()) {
+            LOG.warn("Delete organization failed - not exist: {}", id);
             return RestResult.error(ERROR_NOT_EXIST);
         }
         List<OrganizationEntity> subEntities = organizationEntityRepository.findAllByParentId(id);
         if (!subEntities.isEmpty()) {
+            LOG.warn("Delete organization failed - has children: {}", id);
             return RestResult.error(ERROR_OGR_CHILD_NOT_EMPTY);
         }
 
@@ -805,26 +839,31 @@ public class ServiceImpl implements Service {
             try {
                 GroupAdmin.dismissGroup(mAdminId, optional.get().groupId, null, null);
             } catch (Exception e) {
-                e.printStackTrace();
+                LOG.error("Dismiss group failed, groupId: {}", optional.get().groupId, e);
                 throw new IMServerException();
             }
         }
         organizationEntityRepository.deleteById(id);
+        LOG.info("Organization deleted successfully, id: {}", id);
         return RestResult.ok(null);
     }
 
     @Override
     public RestResult createOrganizationGroup(int id, String groupId) throws IMServerException {
+        LOG.info("Service: createOrganizationGroup, id: {}, groupId: {}", id, groupId);
         Optional<OrganizationEntity> optional = organizationEntityRepository.findById(id);
         if (!optional.isPresent()) {
+            LOG.warn("Create organization group failed - organization not exist: {}", id);
             return RestResult.error(ERROR_NOT_EXIST);
         }
         OrganizationEntity entity = optional.get();
         if (!StringUtils.isNullOrEmpty(entity.groupId)) {
+            LOG.warn("Create organization group failed - already has group: {}", id);
             return RestResult.error(ERROR_ALREADY_EXIST);
         }
 
         if (StringUtils.isNullOrEmpty(entity.managerId)) {
+            LOG.warn("Create organization group failed - no manager: {}", id);
             return RestResult.error(ERROR_ORG_CREATE_GROUP_NEED_MANAGER);
         }
 
@@ -852,11 +891,15 @@ public class ServiceImpl implements Service {
             if (createGroupResultIMResult != null && createGroupResultIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
                 entity.groupId = createGroupResultIMResult.result.getGroup_id();
                 organizationEntityRepository.save(entity);
+                LOG.info("Organization group created successfully, id: {}, groupId: {}", id, entity.groupId);
             } else {
+                LOG.error("Create group failed, code: {}, msg: {}", 
+                    createGroupResultIMResult != null ? createGroupResultIMResult.getErrorCode() : "null",
+                    createGroupResultIMResult != null ? createGroupResultIMResult.msg : "null");
                 throw new IMServerException();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Create organization group failed, id: {}", id, e);
             throw new IMServerException();
         }
         return RestResult.ok(null);
@@ -1013,14 +1056,17 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult createEmployee(EmployeePojo employeePojo) throws Exception {
+        LOG.info("Service: createEmployee, employeeId: {}, name: {}, organizationId: {}", employeePojo.employeeId, employeePojo.name, employeePojo.organizationId);
         //添加员工必须拥有组织
         if (employeePojo.organizationId <= 0) {
+            LOG.warn("Create employee failed - invalid organizationId: {}", employeePojo.organizationId);
             return RestResult.error(ERROR_INVALID_PARAMETER);
         }
 
         //检查组织是否存在
         Optional<OrganizationEntity> optional = organizationEntityRepository.findById(employeePojo.organizationId);
         if (!optional.isPresent()) {
+            LOG.warn("Create employee failed - organization not exist: {}", employeePojo.organizationId);
             return RestResult.error(ERROR_ORGANIZATION_NOT_EXIST);
         }
 
@@ -1028,6 +1074,7 @@ public class ServiceImpl implements Service {
         if (!StringUtils.isNullOrEmpty(employeePojo.employeeId)) {
             Optional<EmployeeEntity> optionalEmployee = employeeEntityRepository.findById(employeePojo.employeeId);
             if (optionalEmployee.isPresent()) {
+                LOG.warn("Create employee failed - already exist: {}", employeePojo.employeeId);
                 return RestResult.error(ERROR_ALREADY_EXIST);
             }
         }
@@ -1095,6 +1142,7 @@ public class ServiceImpl implements Service {
         entity.createDt = System.currentTimeMillis();
         entity.updateDt = entity.createDt;
         employeeEntityRepository.save(entity);
+        LOG.info("Employee created successfully, employeeId: {}, name: {}", employeePojo.employeeId, employeePojo.name);
 
         addEmployeeToOrganization(optional.get(), employeePojo.employeeId);
 
@@ -1110,13 +1158,16 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult updateEmployee(EmployeePojo employeePojo) throws IMServerException {
+        LOG.info("Service: updateEmployee, employeeId: {}, name: {}", employeePojo.employeeId, employeePojo.name);
         EmployeeEntity entity = convertEmployee(employeePojo);
         if (StringUtils.isNullOrEmpty(entity.employeeId)) {
+            LOG.warn("Update employee failed - empty employeeId");
             return RestResult.error(ERROR_INVALID_PARAMETER);
         }
 
         Optional<EmployeeEntity> optionalEmployee = employeeEntityRepository.findById(entity.employeeId);
         if (!optionalEmployee.isPresent()) {
+            LOG.warn("Update employee failed - not exist: {}", entity.employeeId);
             return RestResult.error(ERROR_NOT_EXIST);
         }
 
@@ -1165,19 +1216,23 @@ public class ServiceImpl implements Service {
         entity.createDt = optionalEmployee.get().createDt;
         entity.updateDt = System.currentTimeMillis();
         employeeEntityRepository.save(entity);
+        LOG.info("Employee updated successfully, employeeId: {}", entity.employeeId);
         return RestResult.ok(null);
     }
 
     @Override
     public RestResult moveEmployee(String employeeId, List<Integer> organizations) throws Exception {
+        LOG.info("Service: moveEmployee, employeeId: {}, organizations: {}", employeeId, organizations);
         //检查参数有效性
         if (StringUtils.isNullOrEmpty(employeeId) || organizations == null || organizations.isEmpty()) {
+            LOG.warn("Move employee failed - invalid parameters");
             return RestResult.error(ERROR_INVALID_PARAMETER);
         }
 
         //检查员工是否存在
         Optional<EmployeeEntity> optionalEmployee = employeeEntityRepository.findById(employeeId);
         if (!optionalEmployee.isPresent()) {
+            LOG.warn("Move employee failed - not exist: {}", employeeId);
             return RestResult.error(ERROR_NOT_EXIST);
         }
 
@@ -1292,13 +1347,16 @@ public class ServiceImpl implements Service {
         EmployeeEntity entity = optionalEmployee.get();
         entity.organizationId = organizations.get(0);
         employeeEntityRepository.save(entity);
+        LOG.info("Employee moved successfully, employeeId: {}, newOrganization: {}", employeeId, organizations.get(0));
         return RestResult.ok(null);
     }
 
     @Override
     public RestResult queryEmployee(String employeeId) {
+        LOG.debug("Service: queryEmployee, employeeId: {}", employeeId);
         Optional<EmployeeEntity> optionalEmployee = employeeEntityRepository.findById(employeeId);
         if (!optionalEmployee.isPresent()) {
+            LOG.warn("Query employee failed - not exist: {}", employeeId);
             return RestResult.error(ERROR_NOT_EXIST);
         }
 
@@ -1331,8 +1389,10 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult deleteEmployee(String employeeId, boolean destroyIMUser) throws Exception {
+        LOG.info("Service: deleteEmployee, employeeId: {}, destroyIMUser: {}", employeeId, destroyIMUser);
         Optional<EmployeeEntity> optionalEmployee = employeeEntityRepository.findById(employeeId);
         if (!optionalEmployee.isPresent()) {
+            LOG.warn("Delete employee failed - not exist: {}", employeeId);
             return RestResult.error(ERROR_NOT_EXIST);
         }
         //获取员工的所有关系
@@ -1374,9 +1434,15 @@ public class ServiceImpl implements Service {
 
         //删除IM服务中的用户所有信息
         if (destroyIMUser) {
-            UserAdmin.destroyUser(employeeId);
+            try {
+                UserAdmin.destroyUser(employeeId);
+                LOG.info("IM user destroyed, employeeId: {}", employeeId);
+            } catch (Exception e) {
+                LOG.error("Failed to destroy IM user, employeeId: {}", employeeId, e);
+            }
         }
 
+        LOG.info("Employee deleted successfully, employeeId: {}", employeeId);
         return RestResult.ok(null);
     }
 
@@ -1435,6 +1501,7 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult importOrganization(MultipartFile file) {
+        LOG.info("Service: importOrganization, fileName: {}, size: {}", file.getOriginalFilename(), file.getSize());
         try {
             XSSFWorkbook sourceWorkbook = new XSSFWorkbook(file.getInputStream());
             Iterator<Row> it = sourceWorkbook.getSheetAt(0).rowIterator();
@@ -1603,12 +1670,13 @@ public class ServiceImpl implements Service {
                 currentRow++;
             }
             saveOrganization(trees, employeeMobileMap);
+            LOG.info("Organization imported successfully");
             return RestResult.ok(null);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error("Import organization failed - IO error", e);
             return RestResult.error(ERROR_SERVER_ERROR);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.error("Import organization failed", e);
             return RestResult.error(ERROR_SERVER_ERROR);
         }
     }
@@ -1738,10 +1806,17 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult resetAll() {
-        organizationEntityRepository.deleteAll();
-        employeeEntityRepository.deleteAll();
-        relationshipEntityRepository.deleteAll();
-        return RestResult.ok(null);
+        LOG.info("Service: resetAll - clearing all data");
+        try {
+            organizationEntityRepository.deleteAll();
+            employeeEntityRepository.deleteAll();
+            relationshipEntityRepository.deleteAll();
+            LOG.info("All data cleared successfully");
+            return RestResult.ok(null);
+        } catch (Exception e) {
+            LOG.error("Reset all failed", e);
+            throw e;
+        }
     }
 
     @Override
@@ -1833,10 +1908,12 @@ public class ServiceImpl implements Service {
     }
 
     private void addEmployeeToOrganization(OrganizationEntity organizationEntity, String employeeId) throws Exception {
+        LOG.debug("Add employee to organization, employeeId: {}, orgId: {}", employeeId, organizationEntity.id);
         RelationshipID relationshipID = new RelationshipID();
         relationshipID.organizationId = organizationEntity.id;
         relationshipID.employeeId = employeeId;
         if (relationshipEntityRepository.findById(relationshipID).isPresent()) {
+            LOG.debug("Employee already in organization, employeeId: {}, orgId: {}", employeeId, organizationEntity.id);
             return;
         }
 

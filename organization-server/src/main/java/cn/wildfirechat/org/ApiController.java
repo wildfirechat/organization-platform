@@ -31,7 +31,7 @@ public class ApiController {
     @ResponseBody
     @ExceptionHandler(Exception.class)
     public Object handleException(Exception e) {
-        LOG.error("handleException: {}", e.getLocalizedMessage());
+        LOG.error("handleException: {}", e.getLocalizedMessage(), e);
         if(e instanceof IMServerException) {
             return RestResult.error(RestResult.RestCode.ERROR_IM_SERVER_ERROR);
         } else {
@@ -44,6 +44,7 @@ public class ApiController {
      */
     @PostMapping(value = "login", produces = "application/json;charset=UTF-8")
     public Object login(@RequestBody LoginRequest request, HttpServletResponse response) {
+        LOG.info("Request: login, account: {}", request.getAccount());
         return mService.login(response, request.getAccount(), request.getPassword());
     }
 
@@ -52,6 +53,7 @@ public class ApiController {
     */
     @PostMapping(value = "user_login", produces = "application/json;charset=UTF-8")
     public Object userLogin(@RequestBody ClientLoginRequest request, HttpServletResponse response) {
+        LOG.info("Request: user_login");
         return mService.clientLogin(response, request.authCode);
     }
 
@@ -60,6 +62,7 @@ public class ApiController {
      */
     @PostMapping(value = "update_pwd", produces = "application/json;charset=UTF-8")
     public Object updatePwd(@RequestBody UpdatePasswordRequest request) {
+        LOG.info("Request: update_pwd");
         return mService.updatePassword(request.oldPassword, request.newPassword);
     }
 
@@ -68,6 +71,7 @@ public class ApiController {
      */
     @GetMapping(value = "account", produces = "application/json;charset=UTF-8")
     public Object getAccount() {
+        LOG.info("Request: getAccount");
         return mService.getAccount();
     }
 
@@ -76,6 +80,7 @@ public class ApiController {
      */
     @PostMapping(value = "media/upload")
     public Object uploadMedia(@RequestParam("file") MultipartFile file) throws Exception {
+        LOG.info("Request: uploadMedia, fileName: {}, size: {}", file.getOriginalFilename(), file.getSize());
         return mService.uploadMedia(file);
     }
 
@@ -89,6 +94,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "organization/create", produces = "application/json;charset=UTF-8")
     public Object createOrganization(@RequestBody OrganizationPojo organizationPojo) throws Exception {
+        LOG.info("Request: createOrganization, name: {}, parentId: {}", organizationPojo.name, organizationPojo.parentId);
         mService.recordOpLog("创建部门", organizationPojo.id + "");
         return mService.createOrganization(organizationPojo);
     }
@@ -103,6 +109,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "organization/update", produces = "application/json;charset=UTF-8")
     public Object updateOrganization(@RequestBody OrganizationPojo organizationPojo) throws Exception {
+        LOG.info("Request: updateOrganization, id: {}, name: {}", organizationPojo.id, organizationPojo.name);
         mService.recordOpLog("更新部门", organizationPojo.id + "");
         return mService.updateOrganization(organizationPojo);
     }
@@ -117,6 +124,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "organization/move", produces = "application/json;charset=UTF-8")
     public Object moveOrganization(@RequestBody MoveOrganizationPojo moveOrganizationPojo) throws Exception {
+        LOG.info("Request: moveOrganization, organizationId: {}, newParentId: {}", moveOrganizationPojo.organizationId, moveOrganizationPojo.newParentId);
         mService.recordOpLog("移动部门", moveOrganizationPojo.organizationId + "," + moveOrganizationPojo.newParentId);
         return mService.moveOrganization(moveOrganizationPojo.organizationId, moveOrganizationPojo.newParentId);
     }
@@ -130,6 +138,7 @@ public class ApiController {
      */
     @PostMapping(value = "organization/query", produces = "application/json;charset=UTF-8")
     public Object queryOrganization(@RequestBody OrganizationIdPojo idPojo) throws Exception {
+        LOG.info("Request: queryOrganization, id: {}", idPojo.id);
         return mService.queryOrganization(idPojo.id);
     }
 
@@ -142,6 +151,7 @@ public class ApiController {
      */
     @PostMapping(value = "organization/query_ex", produces = "application/json;charset=UTF-8")
     public Object queryOrganizationEx(@RequestBody OrganizationIdPojo idPojo) throws Exception {
+        LOG.info("Request: queryOrganizationEx, id: {}", idPojo.id);
         return mService.queryOrganizationEx(idPojo.id);
     }
 
@@ -154,6 +164,7 @@ public class ApiController {
      */
     @PostMapping(value = "organization/query_list", produces = "application/json;charset=UTF-8")
     public Object queryBatchOrganization(@RequestBody OrganizationIdListPojo listPojo) throws Exception {
+        LOG.info("Request: queryBatchOrganization, ids: {}", listPojo.ids);
         return mService.queryListOrganization(listPojo.ids);
     }
 
@@ -165,6 +176,7 @@ public class ApiController {
      */
     @PostMapping(value = "organization/root", produces = "application/json;charset=UTF-8")
     public Object queryRootOrganization() throws Exception {
+        LOG.info("Request: queryRootOrganization");
         return mService.queryRootOrganization();
     }
 
@@ -177,6 +189,7 @@ public class ApiController {
      */
     @PostMapping(value = "organization/search", produces = "application/json;charset=UTF-8")
     public Object searchOrganization(@RequestBody SearchOrganizationPojo searchPojo) throws Exception {
+        LOG.info("Request: searchOrganization, keyword: {}, page: {}, count: {}", searchPojo.keyword, searchPojo.page, searchPojo.count);
         return mService.searchOrganization(searchPojo.keyword, searchPojo.page, searchPojo.count);
     }
 
@@ -190,6 +203,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "organization/delete", produces = "application/json;charset=UTF-8")
     public Object deleteOrganization(@RequestBody OrganizationIdPojo idPojo) throws Exception {
+        LOG.info("Request: deleteOrganization, id: {}", idPojo.id);
         mService.recordOpLog("删除部门", idPojo.id + "");
         return mService.deleteOrganization(idPojo.id);
     }
@@ -203,6 +217,7 @@ public class ApiController {
      */
     @PostMapping(value = "organization/employees", produces = "application/json;charset=UTF-8")
     public Object organizationEmployees(@RequestBody OrganizationIdPojo idPojo) throws Exception {
+        LOG.info("Request: organizationEmployees, id: {}", idPojo.id);
         return mService.organizationEmployees(idPojo.id);
     }
 
@@ -215,6 +230,7 @@ public class ApiController {
      */
     @PostMapping(value = "organization/batch_employees", produces = "application/json;charset=UTF-8")
     public Object organizationsEmployees(@RequestBody OrganizationIdListPojo idsPojo) throws Exception {
+        LOG.info("Request: organizationsEmployees, ids: {}", idsPojo.ids);
         return mService.organizationBatchEmployees(idsPojo.ids);
     }
 
@@ -228,6 +244,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "organization/create_group", produces = "application/json;charset=UTF-8")
     public Object createOrganizationGroup(@RequestBody OrganizationGroupPojo groupPojo) throws Exception {
+        LOG.info("Request: createOrganizationGroup, id: {}, groupId: {}", groupPojo.id, groupPojo.groupId);
         mService.recordOpLog("创建工作群", groupPojo.id+","+groupPojo.groupId);
         return mService.createOrganizationGroup(groupPojo.id, groupPojo.groupId);
     }
@@ -242,6 +259,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "organization/dismiss_group", produces = "application/json;charset=UTF-8")
     public Object dismissOrganizationGroup(@RequestBody OrganizationIdPojo idPojo) throws Exception {
+        LOG.info("Request: dismissOrganizationGroup, id: {}", idPojo.id);
         mService.recordOpLog("解散工作群", idPojo.id+"");
         return mService.dismissOrganizationGroup(idPojo.id);
     }
@@ -256,6 +274,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "organization/repair_group", produces = "application/json;charset=UTF-8")
     public Object repairOrganizationGroup(@RequestBody OrganizationIdPojo idPojo) throws Exception {
+        LOG.info("Request: repairOrganizationGroup, id: {}", idPojo.id);
         mService.recordOpLog("修复工作群", idPojo.id+"");
         return mService.repairOrganizationGroup(idPojo.id);
     }
@@ -270,6 +289,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "employee/create", produces = "application/json;charset=UTF-8")
     public Object createEmployee(@RequestBody EmployeePojo employeePojo) throws Exception {
+        LOG.info("Request: createEmployee, employeeId: {}, name: {}, organizationId: {}", employeePojo.employeeId, employeePojo.name, employeePojo.organizationId);
         mService.recordOpLog("添加新员工", employeePojo.employeeId);
         return mService.createEmployee(employeePojo);
     }
@@ -284,6 +304,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "employee/update", produces = "application/json;charset=UTF-8")
     public Object updateEmployee(@RequestBody EmployeePojo employeePojo) throws Exception {
+        LOG.info("Request: updateEmployee, employeeId: {}, name: {}", employeePojo.employeeId, employeePojo.name);
         mService.recordOpLog("更新员工信息", employeePojo.employeeId);
         return mService.updateEmployee(employeePojo);
     }
@@ -298,6 +319,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "employee/move", produces = "application/json;charset=UTF-8")
     public Object moveEmployee(@RequestBody MoveEmployeePojo moveEmployeePojo) throws Exception {
+        LOG.info("Request: moveEmployee, employeeId: {}, organizations: {}", moveEmployeePojo.employeeId, moveEmployeePojo.organizations);
         mService.recordOpLog("员工转移部门", moveEmployeePojo.employeeId + "," + moveEmployeePojo.organizations);
         return mService.moveEmployee(moveEmployeePojo.employeeId, moveEmployeePojo.organizations);
     }
@@ -311,6 +333,7 @@ public class ApiController {
      */
     @PostMapping(value = "employee/query", produces = "application/json;charset=UTF-8")
     public Object queryEmployee(@RequestBody EmployeeId employeeId) throws Exception {
+        LOG.info("Request: queryEmployee, employeeId: {}", employeeId.employeeId);
         return mService.queryEmployee(employeeId.employeeId);
     }
 
@@ -323,6 +346,7 @@ public class ApiController {
      */
     @PostMapping(value = "employee/query_ex", produces = "application/json;charset=UTF-8")
     public Object queryEmployeeEx(@RequestBody EmployeeId employeeId) throws Exception {
+        LOG.info("Request: queryEmployeeEx, employeeId: {}", employeeId.employeeId);
         return mService.queryEmployeeEx(employeeId.employeeId);
     }
 
@@ -335,6 +359,7 @@ public class ApiController {
      */
     @PostMapping(value = "employee/query_list", produces = "application/json;charset=UTF-8")
     public Object queryListEmployee(@RequestBody EmployeeIdList idList) throws Exception {
+        LOG.info("Request: queryListEmployee, employeeIds: {}", idList.employeeIds);
         return mService.queryListEmployee(idList.employeeIds);
     }
 
@@ -348,6 +373,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "employee/delete", produces = "application/json;charset=UTF-8")
     public Object deleteEmployee(@RequestBody DeleteEmployeePojo pojo) throws Exception {
+        LOG.info("Request: deleteEmployee, employeeId: {}, destroyIMUser: {}", pojo.employeeId, pojo.destroyIMUser);
         mService.recordOpLog("删除员工", pojo.employeeId + "," + pojo.destroyIMUser);
         return mService.deleteEmployee(pojo.employeeId, pojo.destroyIMUser);
     }
@@ -362,6 +388,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "employee/update_password", produces = "application/json;charset=UTF-8")
     public Object updateEmployeePassword(@RequestBody UpdateEmployeePasswordRequest request) throws Exception {
+        LOG.info("Request: updateEmployeePassword, employeeId: {}", request.getEmployeeId());
         mService.recordOpLog("修改员工密码", request.getEmployeeId());
         return mService.updateEmployeePassword(request.getEmployeeId(), request.getPassword());
     }
@@ -375,6 +402,7 @@ public class ApiController {
      */
     @PostMapping(value = "employee/search", produces = "application/json;charset=UTF-8")
     public Object searchEmployeeByName(@RequestBody SearchEmployeePojo searchPojo) throws Exception {
+        LOG.info("Request: searchEmployeeByName, keyword: {}, organizationId: {}, page: {}, count: {}", searchPojo.keyword, searchPojo.organizationId, searchPojo.page, searchPojo.count);
         return mService.searchEmployee(searchPojo.keyword, searchPojo.organizationId, searchPojo.root, searchPojo.page, searchPojo.count);
     }
 
@@ -387,6 +415,7 @@ public class ApiController {
      */
     @PostMapping(value = "relationship/employee", produces = "application/json;charset=UTF-8")
     public Object queryEmployeeRelationship(@RequestBody EmployeeId employeeId) throws Exception {
+        LOG.info("Request: queryEmployeeRelationship, employeeId: {}", employeeId.employeeId);
         return mService.queryEmployeeRelationship(employeeId.employeeId);
     }
 
@@ -421,6 +450,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "/import")
     public Object uploadFiles(@RequestParam("file") MultipartFile file) throws IOException {
+        LOG.info("Request: importOrganization, fileName: {}, size: {}", file.getOriginalFilename(), file.getSize());
         mService.recordOpLog("导入组织结构", "");
         return mService.importOrganization(file);
     }
@@ -429,6 +459,7 @@ public class ApiController {
     @Transactional
     @PostMapping(value = "/reset_all")
     public Object resetAll() throws IOException {
+        LOG.info("Request: resetAll");
         mService.recordOpLog("清除所有数据", "");
         return mService.resetAll();
     }
@@ -436,6 +467,7 @@ public class ApiController {
     @ResponseBody
     @PostMapping(value = "/logs")
     public Object getLogs(@RequestParam(name = "page", defaultValue = "0")int page, @RequestParam(name = "count", defaultValue = "20")int count) throws IOException {
+        LOG.info("Request: getLogs, page: {}, count: {}", page, count);
         return mService.getLogs(page, count);
     }
 }
