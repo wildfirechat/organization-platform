@@ -13,7 +13,7 @@ public class EmployeeEntity implements Serializable {
 	@Column(name = "organization_id")
 	public int organizationId;
 
-	@Column(length = 64)
+	@Column(length = 512)
 	public String title;
 
 	@Column(length = 64)

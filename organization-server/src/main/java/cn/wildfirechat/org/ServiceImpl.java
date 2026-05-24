@@ -1605,7 +1605,14 @@ public class ServiceImpl implements Service {
                         return RestResult.result(ERROR_SERVER_ERROR, "部门路径不存在");
                     }
                     if (paths.length != mgs.length) {
-                        return RestResult.result(ERROR_SERVER_ERROR, "部门和负责人数量不匹配");
+                        if(mgs.length == 1 && StringUtils.isNullOrEmpty(mgs[0])) {
+                            mgs = new String[paths.length];
+                            for (int i = 0; i < paths.length; i++) {
+                                mgs[i] = "否";
+                            }
+                        } else {
+                            return RestResult.result(ERROR_SERVER_ERROR, "部门和负责人数量不匹配");
+                        }
                     }
 
                     //循环处理部门路径
@@ -1615,9 +1622,6 @@ public class ServiceImpl implements Service {
                             return RestResult.result(ERROR_SERVER_ERROR, "部门路径");
                         }
                         String mg = mgs[i].trim();
-                        if (StringUtils.isNullOrEmpty(mg)) {
-                            return RestResult.result(ERROR_SERVER_ERROR, "负责人数据为空");
-                        }
 
                         String[] departNameArray = path.split("/");
                         OrganizationTree currentNode = null;
@@ -1690,19 +1694,23 @@ public class ServiceImpl implements Service {
 
     private void saveOrganization(List<OrganizationTree> trees, Map<String, EmployeeModel> employeeMobileMap) throws Exception {
         //先保存组织
+        LOG.info("Save organizations");
         for (OrganizationTree tree : trees) {
             importOrganization(tree);
         }
 
         //再保存员工
+        LOG.info("Save employees");
         importEmployees(employeeMobileMap);
 
         //更新组织的负责人
+        LOG.info("Update organization manager");
         for (OrganizationTree tree : trees) {
             importOrganizationManager(tree);
         }
 
         //更新组织的人数
+        LOG.info("Update organization member count");
         for (OrganizationTree tree : trees) {
             importOrganizationMemberCount(tree);
         }
@@ -1720,6 +1728,7 @@ public class ServiceImpl implements Service {
                 LOG.error("should not be here!");
             }
         }
+        LOG.info("Save organization {}", entity.name);
         organizationEntityRepository.save(entity);
 
         for (OrganizationTree node : tree.nodes) {
@@ -1745,7 +1754,11 @@ public class ServiceImpl implements Service {
     }
 
     private void importEmployees(Map<String, EmployeeModel> employeeMobileMap) throws Exception {
+        int total = employeeMobileMap.size();
+        int current = 0;
         for (EmployeeModel employeeModel : employeeMobileMap.values()) {
+            current++;
+            LOG.info("importEmployees of {}, progress: {}/{}", employeeModel.employee.name, current, total);
             if (!employeeModel.organizationTrees.isEmpty()) {
                 employeeModel.employee.organizationId = employeeModel.organizationTrees.get(0).entity.id;
             }
