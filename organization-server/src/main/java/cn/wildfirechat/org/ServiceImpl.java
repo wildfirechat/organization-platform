@@ -68,6 +68,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static cn.wildfirechat.org.RestResult.RestCode.*;
 
@@ -1054,6 +1056,31 @@ public class ServiceImpl implements Service {
         return pojo;
     }
 
+    @FunctionalInterface
+    private interface ImCall<T> {
+        IMResult<T> execute() throws Exception;
+    }
+
+    private <T> IMResult<T> retryImCall(ImCall<T> call, String desc) throws Exception {
+        int maxRetries = 100;
+        long sleepMs = 500;
+        for (int i = 0; i < maxRetries; i++) {
+            IMResult<T> result = call.execute();
+            if (result.getErrorCode() == ErrorCode.ERROR_CODE_OVER_FREQUENCY) {
+                if (i < maxRetries - 1) {
+                    LOG.warn("IM call over frequency, retry {}/{} after {}ms: {}", i + 1, maxRetries, sleepMs, desc);
+                    Thread.sleep(sleepMs);
+                    if(sleepMs < 3000) {
+                        sleepMs *= 2;
+                    }
+                    continue;
+                }
+            }
+            return result;
+        }
+        return null;
+    }
+
     @Override
     public RestResult createEmployee(EmployeePojo employeePojo) throws Exception {
         LOG.info("Service: createEmployee, employeeId: {}, name: {}, organizationId: {}", employeePojo.employeeId, employeePojo.name, employeePojo.organizationId);
@@ -1090,7 +1117,7 @@ public class ServiceImpl implements Service {
         try {
             boolean needCreateUserInImServer;
             if (!StringUtils.isNullOrEmpty(employeePojo.employeeId)) {
-                IMResult<InputOutputUserInfo> outputUserInfoIMResult = UserAdmin.getUserByUserId(employeePojo.employeeId);
+                IMResult<InputOutputUserInfo> outputUserInfoIMResult = retryImCall(() -> UserAdmin.getUserByUserId(employeePojo.employeeId), "getUserByUserId");
                 if (outputUserInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
                     needCreateUserInImServer = false;
                     inputOutputUserInfo.setName(outputUserInfoIMResult.getResult().getName());
@@ -1101,7 +1128,7 @@ public class ServiceImpl implements Service {
                 }
             } else {
                 if (!StringUtils.isNullOrEmpty(employeePojo.mobile)) {
-                    IMResult<InputOutputUserInfo> outputUserInfoIMResult = UserAdmin.getUserByMobile(employeePojo.mobile);
+                    IMResult<InputOutputUserInfo> outputUserInfoIMResult = retryImCall(() -> UserAdmin.getUserByMobile(employeePojo.mobile), "getUserByMobile");
                     if (outputUserInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
                         employeePojo.employeeId = outputUserInfoIMResult.result.getUserId();
                         inputOutputUserInfo.setName(outputUserInfoIMResult.getResult().getName());
@@ -1119,18 +1146,21 @@ public class ServiceImpl implements Service {
 
             if (needCreateUserInImServer) {
                 inputOutputUserInfo.setName(UUID.randomUUID().toString());
-                IMResult<OutputCreateUser> outputCreateUserIMResult = UserAdmin.createUser(inputOutputUserInfo);
+                IMResult<OutputCreateUser> outputCreateUserIMResult = retryImCall(() -> UserAdmin.createUser(inputOutputUserInfo), "createUser");
                 if (outputCreateUserIMResult.getErrorCode() != ErrorCode.ERROR_CODE_SUCCESS) {
                     throw new IMServerException();
                 }
                 employeePojo.employeeId = outputCreateUserIMResult.result.getUserId();
             } else {
                 //用户已经存在，同步用户信息
-                UserAdmin.updateUserInfo(inputOutputUserInfo, ProtoConstants.UpdateUserInfoMask.Update_User_DisplayName
+                IMResult<Void> updateResult = retryImCall(() -> UserAdmin.updateUserInfo(inputOutputUserInfo, ProtoConstants.UpdateUserInfoMask.Update_User_DisplayName
                     | ProtoConstants.UpdateUserInfoMask.Update_User_Gender
                     | ProtoConstants.UpdateUserInfoMask.Update_User_Portrait
                     | ProtoConstants.UpdateUserInfoMask.Update_User_Mobile
-                    | ProtoConstants.UpdateUserInfoMask.Update_User_Email);
+                    | ProtoConstants.UpdateUserInfoMask.Update_User_Email), "updateUserInfo");
+                if (updateResult.getErrorCode() != ErrorCode.ERROR_CODE_SUCCESS) {
+                    throw new IMServerException();
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -1760,29 +1790,54 @@ public class ServiceImpl implements Service {
 
     private void importEmployees(Map<String, EmployeeModel> employeeMobileMap) throws Exception {
         int total = employeeMobileMap.size();
-        int current = 0;
+        AtomicInteger current = new AtomicInteger(0);
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failCount = new AtomicInteger(0);
+
+        int nThreads = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(nThreads);
+        List<Future<?>> futures = new ArrayList<>();
+
         for (EmployeeModel employeeModel : employeeMobileMap.values()) {
-            current++;
-            LOG.info("importEmployees of {}, progress: {}/{}", employeeModel.employee.name, current, total);
-            if (!employeeModel.organizationTrees.isEmpty()) {
-                employeeModel.employee.organizationId = employeeModel.organizationTrees.get(0).entity.id;
-            }
-            EmployeePojo pojo = convertEmployee(employeeModel.employee);
-            RestResult result = createEmployee(pojo);
-            if (result.getCode() == SUCCESS.code) {
-                CreateEmployeeResult createEmployeeResult = (CreateEmployeeResult) result.getResult();
-                employeeModel.employee.employeeId = createEmployeeResult.employeeId;
-                if (employeeModel.organizationTrees.size() > 1) {
-                    List<Integer> oids = new ArrayList<>();
-                    employeeModel.organizationTrees.forEach(tree -> oids.add(tree.entity.id));
-                    moveEmployee(createEmployeeResult.employeeId, oids);
+            Future<?> future = executor.submit(() -> {
+                try {
+                    int c = current.incrementAndGet();
+                    LOG.info("importEmployees of {}, progress: {}/{}", employeeModel.employee.name, c, total);
+                    if (!employeeModel.organizationTrees.isEmpty()) {
+                        employeeModel.employee.organizationId = employeeModel.organizationTrees.get(0).entity.id;
+                    }
+                    EmployeePojo pojo = convertEmployee(employeeModel.employee);
+                    RestResult result = createEmployee(pojo);
+                    if (result.getCode() == SUCCESS.code) {
+                        CreateEmployeeResult createEmployeeResult = (CreateEmployeeResult) result.getResult();
+                        employeeModel.employee.employeeId = createEmployeeResult.employeeId;
+                        if (employeeModel.organizationTrees.size() > 1) {
+                            List<Integer> oids = new ArrayList<>();
+                            employeeModel.organizationTrees.forEach(tree -> oids.add(tree.entity.id));
+                            moveEmployee(createEmployeeResult.employeeId, oids);
+                        }
+                        // 保存密码到第二个数据源（im-app_server数据库）
+                        if (!StringUtils.isNullOrEmpty(employeeModel.password)) {
+                            saveUserPassword(createEmployeeResult.employeeId, employeeModel.password);
+                        }
+                        successCount.incrementAndGet();
+                    } else {
+                        LOG.warn("Import employee failed: {}, result: {}", employeeModel.employee.name, result);
+                        failCount.incrementAndGet();
+                    }
+                } catch (Exception e) {
+                    LOG.error("Import employee failed: {}", employeeModel.employee.name, e);
+                    failCount.incrementAndGet();
                 }
-                // 保存密码到第二个数据源（im-app_server数据库）
-                if (!StringUtils.isNullOrEmpty(employeeModel.password)) {
-                    saveUserPassword(createEmployeeResult.employeeId, employeeModel.password);
-                }
-            }
+            });
+            futures.add(future);
         }
+
+        for (Future<?> future : futures) {
+            future.get();
+        }
+        executor.shutdown();
+        LOG.info("Import employees finished, total: {}, success: {}, fail: {}", total, successCount.get(), failCount.get());
     }
 
     private void saveUserPassword(String userId, String password) throws Exception {
