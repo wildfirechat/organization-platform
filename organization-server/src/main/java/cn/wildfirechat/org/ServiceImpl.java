@@ -1538,6 +1538,11 @@ public class ServiceImpl implements Service {
                     String level = getStringValue(row.getCell(index++));
                     String password = getStringValue(row.getCell(index++));
 
+                    if(StringUtils.isNullOrEmpty(mobile) && StringUtils.isNullOrEmpty(name) && StringUtils.isNullOrEmpty(department)) {
+                        //空行
+                        continue;
+                    }
+
                     //检查电话号码是否存在检查是否重复
                     if (StringUtils.isNullOrEmpty(mobile)) {
                         return RestResult.result(ERROR_SERVER_ERROR, "电话号码不能为空");

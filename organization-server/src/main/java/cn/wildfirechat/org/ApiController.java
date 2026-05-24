@@ -447,7 +447,6 @@ public class ApiController {
     }
 
     @ResponseBody
-    @Transactional
     @PostMapping(value = "/import")
     public Object uploadFiles(@RequestParam("file") MultipartFile file) throws IOException {
         LOG.info("Request: importOrganization, fileName: {}, size: {}", file.getOriginalFilename(), file.getSize());
