@@ -1577,7 +1577,14 @@ public class ServiceImpl implements Service {
                     employeeEntity.ext = ext;
                     employeeEntity.joinTime = joinTime;
                     employeeEntity.title = title;
-                    employeeEntity.level = Integer.parseInt(level);
+                    employeeEntity.level = 0;
+                    if(!StringUtils.isNullOrEmpty(level)) {
+                        try {
+                            employeeEntity.level = Integer.parseInt(level);
+                        } catch (NumberFormatException e) {
+                            e.printStackTrace();
+                        }
+                    }
 
                     //创建用户model
                     employeeModel = new EmployeeModel(employeeEntity);
