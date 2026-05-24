@@ -4,7 +4,7 @@ import javax.persistence.*;
 import java.io.Serializable;
 
 @Entity
-@Table(name = "t_optlog")
+@Table(name = "t_optlog", indexes = {@Index(name = "idx_optlog_timestamp", columnList = "timestamp")})
 public class OperationLogEntity implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

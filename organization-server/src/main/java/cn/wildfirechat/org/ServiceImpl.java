@@ -5,8 +5,8 @@ import cn.wildfirechat.org.exception.IMServerException;
 import cn.wildfirechat.org.exception.OrganizationDataCorruptionException;
 import cn.wildfirechat.org.exception.OrganizationNoExistException;
 import cn.wildfirechat.org.jpa.*;
-import cn.wildfirechat.org.jpa.secondary.UserPassword;
-import cn.wildfirechat.org.jpa.secondary.UserPasswordRepository;
+import cn.wildfirechat.org.secondary.jpa.UserPassword;
+import cn.wildfirechat.org.secondary.jpa.UserPasswordRepository;
 import cn.wildfirechat.org.model.EmployeeModel;
 import cn.wildfirechat.org.model.OrganizationTree;
 import cn.wildfirechat.org.pojo.*;
@@ -1062,7 +1062,7 @@ public class ServiceImpl implements Service {
     }
 
     private <T> IMResult<T> retryImCall(ImCall<T> call, String desc) throws Exception {
-        int maxRetries = 100;
+        int maxRetries = 5;
         long sleepMs = 500;
         for (int i = 0; i < maxRetries; i++) {
             IMResult<T> result = call.execute();
@@ -1926,10 +1926,11 @@ public class ServiceImpl implements Service {
     @Override
     public RestResult getLogs(int page, int count) {
         Pageable pageable = PageRequest.of(page, count);
-        Page<OperationLogEntity> logEntityPage = operationLogEntityRepository.getLogsByPages(pageable);
+        long since = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000;
+        Page<OperationLogEntity> logEntityPage = operationLogEntityRepository.getLogsByPages(since, pageable);
         PageResponse<OperationLogPojo> response = new PageResponse<>();
         response.totalPages = logEntityPage.getTotalPages();
-        response.totalCount = logEntityPage.getNumberOfElements();
+        response.totalCount = (int) logEntityPage.getTotalElements();
         response.contents = new ArrayList<>();
         logEntityPage.getContent().forEach(entity -> response.contents.add(convertOperationLog(entity)));
 

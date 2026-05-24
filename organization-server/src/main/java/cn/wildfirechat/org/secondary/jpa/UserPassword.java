@@ -1,4 +1,4 @@
-package cn.wildfirechat.org.jpa.secondary;
+package cn.wildfirechat.org.secondary.jpa;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;

@@ -21,7 +21,7 @@ import java.util.Map;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-    basePackages = "cn.wildfirechat.org.jpa.secondary",
+    basePackages = "cn.wildfirechat.org.secondary.jpa",
     entityManagerFactoryRef = "secondaryEntityManagerFactory",
     transactionManagerRef = "secondaryTransactionManager"
 )
@@ -42,7 +42,7 @@ public class SecondaryDataSourceConfig {
         properties.put("hibernate.hbm2ddl.auto", "none");
         return builder
             .dataSource(secondaryDataSource)
-            .packages("cn.wildfirechat.org.jpa.secondary")
+            .packages("cn.wildfirechat.org.secondary.jpa")
             .persistenceUnit("secondary")
             .properties(properties)
             .build();

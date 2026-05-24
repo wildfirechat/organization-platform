@@ -1,4 +1,4 @@
-package cn.wildfirechat.org.jpa.secondary;
+package cn.wildfirechat.org.secondary.jpa;
 
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;

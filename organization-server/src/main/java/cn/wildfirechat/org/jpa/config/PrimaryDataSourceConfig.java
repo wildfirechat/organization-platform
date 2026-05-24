@@ -23,10 +23,6 @@ import java.util.Map;
 @EnableTransactionManagement
 @EnableJpaRepositories(
     basePackages = "cn.wildfirechat.org.jpa",
-    excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
-        type = org.springframework.context.annotation.FilterType.REGEX,
-        pattern = "cn.wildfirechat.org.jpa.secondary.*"
-    ),
     entityManagerFactoryRef = "primaryEntityManagerFactory",
     transactionManagerRef = "primaryTransactionManager"
 )
