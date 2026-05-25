@@ -21,7 +21,8 @@ export default class Organization {
     managerName;
     // subDepartments
     children;
-    hasChildren = true;
+    hasChildren;
+    leaf;
     employees;
 
     buildRenderData(organizationWithChildren) {
@@ -29,20 +30,36 @@ export default class Organization {
         this.type = 1;
         let manager = organizationWithChildren ? organizationWithChildren.employees.find(e => e.employeeId === this.managerId) : null
         this.managerName = manager ? manager.name : null;
-        this.children = [];
-        this.employees = [];
         if (!organizationWithChildren) {
+            if (this.hasChildren === true) {
+                this.leaf = false;
+            } else if (this.hasChildren === false) {
+                this.leaf = true;
+            }
             return;
+        }
+        if (!this.children) {
+            this.children = [];
         } else {
             this.children.length = 0;
         }
+        if (!this.employees) {
+            this.employees = [];
+        } else {
+            this.employees.length = 0;
+        }
         if (organizationWithChildren.subOrganizations && organizationWithChildren.subOrganizations.length > 0) {
+            this.hasChildren = true;
+            this.leaf = false;
             organizationWithChildren.subOrganizations.forEach(subOrg => {
                 let org = Object.assign(new Organization(), subOrg);
                 org.buildRenderData();
 
                 this.children.push(org);
             })
+        } else {
+            this.hasChildren = false;
+            this.leaf = true;
         }
         if (organizationWithChildren.employees && organizationWithChildren.employees.length > 0) {
             organizationWithChildren.employees.forEach(subE => {

@@ -69,6 +69,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static cn.wildfirechat.org.RestResult.RestCode.*;
@@ -749,7 +750,14 @@ public class ServiceImpl implements Service {
         result.subOrganizations = new ArrayList<>();
         List<OrganizationEntity> subOrganizations = organizationEntityRepository.findAllByParentId(id);
         if (subOrganizations != null && !subOrganizations.isEmpty()) {
-            subOrganizations.forEach(organizationEntity -> result.subOrganizations.add(convertOrganization(organizationEntity)));
+            List<Integer> subIds = subOrganizations.stream().map(o -> o.id).collect(Collectors.toList());
+            List<Integer> hasChildrenIds = organizationEntityRepository.findParentIdsWithChildren(subIds);
+            Set<Integer> hasChildrenSet = new HashSet<>(hasChildrenIds);
+            subOrganizations.forEach(organizationEntity -> {
+                OrganizationPojo pojo = convertOrganization(organizationEntity);
+                pojo.hasChildren = hasChildrenSet.contains(organizationEntity.id);
+                result.subOrganizations.add(pojo);
+            });
         }
         result.employees = new ArrayList<>();
         List<EmployeeEntity> employees = employeeEntityRepository.findByOrganizationId(id);
@@ -777,6 +785,12 @@ public class ServiceImpl implements Service {
     @Override
     public RestResult queryRootOrganization() {
         List<OrganizationEntity> entities = organizationEntityRepository.findRootEntity();
+        if (!entities.isEmpty()) {
+            List<Integer> ids = entities.stream().map(e -> e.id).collect(Collectors.toList());
+            List<Integer> hasChildrenIds = organizationEntityRepository.findParentIdsWithChildren(ids);
+            Set<Integer> hasChildrenSet = new HashSet<>(hasChildrenIds);
+            entities.forEach(e -> e.hasChildren = hasChildrenSet.contains(e.id));
+        }
         return RestResult.ok(entities);
     }
 
@@ -1234,9 +1248,11 @@ public class ServiceImpl implements Service {
                 flag |= ProtoConstants.UpdateUserInfoMask.Update_User_Email;
             }
 
-            IMResult<Void> voidIMResult = UserAdmin.updateUserInfo(inputOutputUserInfo, flag);
-            if (voidIMResult.getErrorCode() != ErrorCode.ERROR_CODE_SUCCESS) {
-                throw new IMServerException();
+            if(flag > 0) {
+                IMResult<Void> voidIMResult = UserAdmin.updateUserInfo(inputOutputUserInfo, flag);
+                if (voidIMResult.getErrorCode() != ErrorCode.ERROR_CODE_SUCCESS) {
+                    throw new IMServerException();
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();

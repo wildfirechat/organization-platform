@@ -16,4 +16,5 @@ public class OrganizationPojo {
     public int sort;
     public long updateDt;
     public long createDt;
+    public boolean hasChildren;
 }

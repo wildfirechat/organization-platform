@@ -46,4 +46,7 @@ public class OrganizationEntity implements Serializable {
 
 	@Column
 	public long createDt;
+
+	@Transient
+	public boolean hasChildren;
 }

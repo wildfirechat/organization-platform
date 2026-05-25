@@ -49,6 +49,9 @@ export default {
     async udpatePwd(params) {
         return axios.post('/update_pwd', params)
     },
+    async updateEmployee(employee) {
+        return axios.post('/employee/update', employee);
+    },
     async updateEmployeePassword(employeeId, password) {
         return axios.post('/employee/update_password', {employeeId, password});
     },

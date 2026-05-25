@@ -12,7 +12,7 @@ public interface EmployeeEntityRepository extends CrudRepository<EmployeeEntity,
     Optional<EmployeeEntity> findByEmployeeId(String employeeId);
 
 
-    @Query(value = "select * from t_employee where employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?1 and bottom = true )", nativeQuery = true)
+    @Query(value = "select * from t_employee where employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?1 and bottom = true) order by sort", nativeQuery = true)
     List<EmployeeEntity> findByOrganizationId(int organizationId);
 
     @Query(value = "select * from t_employee where (name like CONCAT('%',?1,'%') or mobile = ?1) and employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?2 ) ",

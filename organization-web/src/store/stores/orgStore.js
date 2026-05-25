@@ -97,6 +97,10 @@ export const useOrgStore = defineStore('org', {
       await Api.deleteEmployee(employeeId, destroyIMUser);
     },
 
+    async updateEmployee(employee) {
+      await Api.updateEmployee(employee);
+    },
+
     async updateEmployeePassword(employeeId, password) {
       await Api.updateEmployeePassword(employeeId, password);
     }

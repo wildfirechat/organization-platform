@@ -25,4 +25,7 @@ public interface OrganizationEntityRepository extends CrudRepository<Organizatio
     @Query(value = "update t_organization set member_count = (select count(distinct(employee_id)) from t_relationship where organization_id = ?1) where id = ?1", nativeQuery = true)
     @Modifying
     int updateOrganizationMemberCount(int organizationId);
+
+    @Query(value = "select distinct parent_id from t_organization where parent_id in ?1", nativeQuery = true)
+    List<Integer> findParentIdsWithChildren(List<Integer> parentIds);
 }
