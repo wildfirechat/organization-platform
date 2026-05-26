@@ -1557,6 +1557,8 @@ public class ServiceImpl implements Service {
             Map<String, EmployeeModel> employeeUserIdMap = new HashMap<>();
             Map<String, EmployeeModel> employeeMobileMap = new HashMap<>();
             Map<String, EmployeeModel> employeeEmailMap = new HashMap<>();
+            int employeeSort = 0;
+            int departmentSort = 0;
             while (it.hasNext()) {
                 Row row = it.next();
                 if (currentRow == 0) {
@@ -1629,6 +1631,7 @@ public class ServiceImpl implements Service {
                     employeeEntity.joinTime = joinTime;
                     employeeEntity.title = title;
                     employeeEntity.level = 0;
+                    employeeEntity.sort = ++employeeSort;
                     if(!StringUtils.isNullOrEmpty(level)) {
                         try {
                             employeeEntity.level = Integer.parseInt(level);
@@ -1695,6 +1698,7 @@ public class ServiceImpl implements Service {
                                 if (currentNode == null) {
                                     OrganizationEntity organizationEntity = new OrganizationEntity();
                                     organizationEntity.name = departName;
+                                    organizationEntity.sort = ++departmentSort;
                                     currentNode = new OrganizationTree((organizationEntity));
                                     trees.add(currentNode);
                                 }
@@ -1712,6 +1716,7 @@ public class ServiceImpl implements Service {
                             if (!existNode) {
                                 OrganizationEntity organizationEntity = new OrganizationEntity();
                                 organizationEntity.name = departName;
+                                organizationEntity.sort = ++departmentSort;
                                 OrganizationTree tree = new OrganizationTree((organizationEntity));
                                 tree.parent = currentNode;
                                 currentNode.nodes.add(tree);

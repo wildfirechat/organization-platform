@@ -71,6 +71,9 @@ export default {
         },
         onUploadSuccess() {
             this.$router.back();
+            setTimeout(() => {
+                window.location.reload();
+            }, 100);
         },
         onCancel(){
             this.$router.back();

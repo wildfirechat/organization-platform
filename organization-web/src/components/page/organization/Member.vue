@@ -21,7 +21,10 @@
                         </span>
                         <el-dropdown-menu slot="dropdown">
                             <el-dropdown-item v-if="!node.data.groupId"
+                                              :disabled="!node.data.managerId"
                                               :command="{ c: 'create-org-group', node: node, depart: node.data }">创建组织官方群</el-dropdown-item>
+                            <el-dropdown-item
+                                :command="{ c: 'set-manager', node: node, depart: node.data }">{{ node.data.managerId ? '修改组织领导' : '设置组织领导' }}</el-dropdown-item>
                             <el-dropdown-item
                                 :command="{ c: 'edit', node: node, depart: node.data }">编辑部门</el-dropdown-item>
                             <el-dropdown-item
@@ -166,6 +169,26 @@
                 :on-cancel="() => this.showUpdateEmployeeDialog = false"
                 :on-success="onUpdateEmployeeSuccess"/>
         </el-dialog>
+
+        <el-dialog :title="managerTargetDepartment && managerTargetDepartment.managerId ? '修改组织领导' : '设置组织领导'" :visible.sync="showSetManagerDialog" :close-on-click-modal="false"
+                   :before-close="() => { this.showSetManagerDialog = false }">
+            <el-form label-position="right" size="medium">
+                <el-form-item label="部门领导">
+                    <el-select v-model="selectedManagerId" placeholder="请选择部门领导" style="width: 100%">
+                        <el-option
+                            v-for="emp in managerCandidates"
+                            :key="emp.employeeId"
+                            :label="emp.name"
+                            :value="emp.employeeId">
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+            </el-form>
+            <div slot="footer" style="display: flex; justify-content: flex-end">
+                <el-button @click="showSetManagerDialog = false">取消</el-button>
+                <el-button type="primary" :disabled="!selectedManagerId" @click="confirmSetManager">确定</el-button>
+            </div>
+        </el-dialog>
     </el-container>
 </template>
 
@@ -223,6 +246,12 @@ export default {
 
             currentEmployeeDetail: null,
             showUpdateEmployeeDialog: false,
+
+            showSetManagerDialog: false,
+            managerTargetDepartment: null,
+            managerTargetNode: null,
+            selectedManagerId: null,
+            managerCandidates: [],
         }
     },
     computed: {
@@ -364,6 +393,24 @@ export default {
                 case 'create-org-group':
                     api.createOrganizationGroup(command.depart.id, '');
                     break;
+                case 'set-manager': {
+                    const depart = command.depart;
+                    this.managerTargetDepartment = depart;
+                    this.managerTargetNode = command.node;
+                    this.selectedManagerId = depart.managerId || null;
+                    if (depart._orgWithChildren && depart._orgWithChildren.employees) {
+                        this.managerCandidates = depart._orgWithChildren.employees;
+                        this.showSetManagerDialog = true;
+                    } else {
+                        api.queryOrganizationWithChildren(depart.id).then(result => {
+                            let orgWC = Object.assign(new OrganizationWithChildren(), result);
+                            depart._orgWithChildren = orgWC;
+                            this.managerCandidates = orgWC.employees || [];
+                            this.showSetManagerDialog = true;
+                        });
+                    }
+                    break;
+                }
                 case 'move-up': {
                     const siblings = command.node.parent.childNodes;
                     const idx = siblings.indexOf(command.node);
@@ -415,6 +462,37 @@ export default {
             this.showDeleteEmployeeDrawer = false;
             if (success) {
                 this.orgStore.queryOrganizationWithChildren(this.currentOrg);
+            }
+        },
+        async confirmSetManager() {
+            if (!this.selectedManagerId || !this.managerTargetDepartment) {
+                return;
+            }
+            const org = {
+                id: this.managerTargetDepartment.id,
+                managerId: this.selectedManagerId,
+                parentId: this.managerTargetDepartment.parentId,
+                name: this.managerTargetDepartment.name,
+            };
+            try {
+                await this.orgStore.updateOrganization(org);
+                this.managerTargetDepartment.managerId = this.selectedManagerId;
+                if (this.managerTargetDepartment._orgWithChildren) {
+                    const manager = this.managerCandidates.find(e => e.employeeId === this.selectedManagerId);
+                    this.managerTargetDepartment.managerName = manager ? manager.name : null;
+                }
+                this.showSetManagerDialog = false;
+                this.updateTreeNode(this.managerTargetNode);
+                if (this.currentOrg && this.currentOrg.id === this.managerTargetDepartment.id) {
+                    this.handleNodeClick(this.currentOrg);
+                }
+                this.managerTargetDepartment = null;
+                this.managerTargetNode = null;
+                this.selectedManagerId = null;
+                this.managerCandidates = [];
+            } catch (e) {
+                console.error('设置部门领导失败', e);
+                this.$message.error('设置部门领导失败');
             }
         },
         updateTreeNode(node) {
