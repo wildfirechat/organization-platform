@@ -29,7 +29,9 @@ export default class Organization {
         this.label = this.name;
         this.type = 1;
         let manager = organizationWithChildren ? organizationWithChildren.employees.find(e => e.employeeId === this.managerId) : null
-        this.managerName = manager ? manager.name : null;
+        if (manager) {
+            this.managerName = manager.name;
+        }
         if (!organizationWithChildren) {
             if (this.hasChildren === true) {
                 this.leaf = false;

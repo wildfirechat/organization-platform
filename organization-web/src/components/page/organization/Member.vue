@@ -308,7 +308,7 @@ export default {
                 if (data.managerId && !data.managerName) {
                     api.queryEmployee(data.managerId).then(emp => {
                         if (emp && emp.name) {
-                            data.managerName = emp.name;
+                            this.$set(data, 'managerName', emp.name);
                         }
                     });
                 }

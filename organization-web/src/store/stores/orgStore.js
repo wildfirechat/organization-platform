@@ -35,6 +35,9 @@ export const useOrgStore = defineStore('org', {
         let tmp = await Api.queryOrganizationWithChildren(rootOrg.id);
         let orgWC = Object.assign(new OrganizationWithChildren(), tmp);
         org._orgWithChildren = orgWC;
+        if (orgWC.organization) {
+            Object.assign(org, orgWC.organization);
+        }
         org.buildRenderData(orgWC);
         console.log('query root organizationWithChildren', this.rootOrganizations);
       }
@@ -48,6 +51,9 @@ export const useOrgStore = defineStore('org', {
       let result = await Api.queryOrganizationWithChildren(org.id);
       let orgWC = Object.assign(new OrganizationWithChildren(), result);
       org._orgWithChildren = orgWC;
+      if (orgWC.organization) {
+          Object.assign(org, orgWC.organization);
+      }
       org.buildRenderData(orgWC);
       console.log('queryOrganizationWithChildren', org.id, orgWC, org);
     },
