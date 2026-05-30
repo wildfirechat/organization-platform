@@ -57,6 +57,7 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/api/media/upload", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/organization/create", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/organization/update", "perms[user:admin]");
+        filterChainDefinitionMap.put("/api/organization/set_manager", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/organization/move", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/organization/query", "perms[user:view]");
         filterChainDefinitionMap.put("/api/organization/query_ex", "perms[user:view]");

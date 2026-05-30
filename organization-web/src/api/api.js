@@ -37,6 +37,9 @@ export default {
     async updateOrganization(organizaiton) {
         return axios.post('/organization/update', organizaiton);
     },
+    async setOrganizationManager(id, managerId) {
+        return axios.post('/organization/set_manager', {id, managerId});
+    },
     async deleteOrganization(organization) {
         return axios.post('/organization/delete', {id: organization.id})
     },
@@ -46,6 +49,9 @@ export default {
     async dismissOrganizationGroup(organization) {
         return axios.post('/organization/dismiss_group', {id: organization.id})
     },
+    async repairOrganizationGroup(orgId) {
+        return axios.post('/organization/repair_group', {id: orgId})
+    },
     async udpatePwd(params) {
         return axios.post('/update_pwd', params)
     },
@@ -54,6 +60,9 @@ export default {
     },
     async updateEmployeePassword(employeeId, password) {
         return axios.post('/employee/update_password', {employeeId, password});
+    },
+    async searchEmployee(organizationId, keyword = '', page = 0, count = 1000, root = false) {
+        return axios.post('/employee/search', {organizationId, keyword, page, count, root});
     },
 
     downloadTemplateUrl() {

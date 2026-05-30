@@ -114,6 +114,14 @@ public class ApiController {
         return mService.updateOrganization(organizationPojo);
     }
 
+    @Transactional
+    @PostMapping(value = "organization/set_manager", produces = "application/json;charset=UTF-8")
+    public Object setOrganizationManager(@RequestBody SetOrganizationManagerPojo pojo) throws Exception {
+        LOG.info("Request: setOrganizationManager, id: {}, managerId: {}", pojo.id, pojo.managerId);
+        mService.recordOpLog("设置部门管理员", pojo.id + "");
+        return mService.setOrganizationManager(pojo.id, pojo.managerId);
+    }
+
     /**
      * 移动组织
      *

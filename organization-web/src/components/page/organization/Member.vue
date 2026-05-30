@@ -23,6 +23,10 @@
                             <el-dropdown-item v-if="!node.data.groupId"
                                               :disabled="!node.data.managerId"
                                               :command="{ c: 'create-org-group', node: node, depart: node.data }">创建组织官方群</el-dropdown-item>
+                            <el-dropdown-item v-if="node.data.groupId"
+                                              :command="{ c: 'dismiss-org-group', node: node, depart: node.data }">解散组织官方群</el-dropdown-item>
+                            <el-dropdown-item v-if="node.data.groupId"
+                                              :command="{ c: 'repair-org-group', node: node, depart: node.data }">修复组织官方群</el-dropdown-item>
                             <el-dropdown-item
                                 :command="{ c: 'set-manager', node: node, depart: node.data }">{{ node.data.managerId ? '修改组织领导' : '设置组织领导' }}</el-dropdown-item>
                             <el-dropdown-item
@@ -174,7 +178,7 @@
                    :before-close="() => { this.showSetManagerDialog = false }">
             <el-form label-position="right" size="medium">
                 <el-form-item label="部门领导">
-                    <el-select v-model="selectedManagerId" placeholder="请选择部门领导" style="width: 100%">
+                    <el-select v-model="selectedManagerId" filterable placeholder="请选择部门领导" style="width: 100%">
                         <el-option
                             v-for="emp in managerCandidates"
                             :key="emp.employeeId"
@@ -297,6 +301,13 @@ export default {
                 if (orgWC.employees) {
                     this.currentOrgEmployees.push(...orgWC.employees);
                 }
+                if (data.managerId && !data.managerName) {
+                    api.queryEmployee(data.managerId).then(emp => {
+                        if (emp && emp.name) {
+                            data.managerName = emp.name;
+                        }
+                    });
+                }
             }
         },
         async handleNodeExpand(data) {
@@ -391,24 +402,29 @@ export default {
                         });
                     break;
                 case 'create-org-group':
-                    api.createOrganizationGroup(command.depart.id, '');
+                    api.createOrganizationGroup(command.depart.id, '').then(() => {
+                        this.updateTreeNode(command.node);
+                    });
+                    break;
+                case 'dismiss-org-group':
+                    api.dismissOrganizationGroup(command.depart).then(() => {
+                        this.updateTreeNode(command.node);
+                    });
+                    break;
+                case 'repair-org-group':
+                    api.repairOrganizationGroup(command.depart.id).then(() => {
+                        this.updateTreeNode(command.node);
+                    });
                     break;
                 case 'set-manager': {
                     const depart = command.depart;
                     this.managerTargetDepartment = depart;
                     this.managerTargetNode = command.node;
                     this.selectedManagerId = depart.managerId || null;
-                    if (depart._orgWithChildren && depart._orgWithChildren.employees) {
-                        this.managerCandidates = depart._orgWithChildren.employees;
+                    api.searchEmployee(depart.id, '', 0, 100, false).then(result => {
+                        this.managerCandidates = result.contents || [];
                         this.showSetManagerDialog = true;
-                    } else {
-                        api.queryOrganizationWithChildren(depart.id).then(result => {
-                            let orgWC = Object.assign(new OrganizationWithChildren(), result);
-                            depart._orgWithChildren = orgWC;
-                            this.managerCandidates = orgWC.employees || [];
-                            this.showSetManagerDialog = true;
-                        });
-                    }
+                    });
                     break;
                 }
                 case 'move-up': {
@@ -468,14 +484,8 @@ export default {
             if (!this.selectedManagerId || !this.managerTargetDepartment) {
                 return;
             }
-            const org = {
-                id: this.managerTargetDepartment.id,
-                managerId: this.selectedManagerId,
-                parentId: this.managerTargetDepartment.parentId,
-                name: this.managerTargetDepartment.name,
-            };
             try {
-                await this.orgStore.updateOrganization(org);
+                await api.setOrganizationManager(this.managerTargetDepartment.id, this.selectedManagerId);
                 this.managerTargetDepartment.managerId = this.selectedManagerId;
                 if (this.managerTargetDepartment._orgWithChildren) {
                     const manager = this.managerCandidates.find(e => e.employeeId === this.selectedManagerId);

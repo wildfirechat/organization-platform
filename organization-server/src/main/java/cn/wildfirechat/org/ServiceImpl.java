@@ -554,6 +554,58 @@ public class ServiceImpl implements Service {
             }
         }
 
+        updateOrganizationMemberCount(entity.id);
+
+        return RestResult.ok(null);
+    }
+
+    @Override
+    public RestResult setOrganizationManager(int id, String managerId) throws Exception {
+        LOG.info("Service: setOrganizationManager, id: {}, managerId: {}", id, managerId);
+        if (id <= 0) {
+            LOG.warn("Set organization manager failed - invalid id: {}", id);
+            return RestResult.error(ERROR_INVALID_PARAMETER);
+        }
+        Optional<OrganizationEntity> optional = organizationEntityRepository.findById(id);
+        if (!optional.isPresent()) {
+            LOG.warn("Set organization manager failed - not exist: {}", id);
+            return RestResult.error(ERROR_NOT_EXIST);
+        }
+
+        OrganizationEntity entity = optional.get();
+        String orgManagerId = entity.managerId;
+
+        if (isEqual(entity.managerId, managerId)) {
+            return RestResult.ok(null);
+        }
+
+        entity.managerId = managerId;
+        entity.updateDt = System.currentTimeMillis();
+        organizationEntityRepository.save(entity);
+        LOG.info("Organization manager set successfully, id: {}, managerId: {}", entity.id, managerId);
+
+        if (!StringUtils.isNullOrEmpty(managerId)) {
+            RelationshipID relationshipID = new RelationshipID();
+            relationshipID.employeeId = managerId;
+            relationshipID.organizationId = entity.id;
+            Optional<RelationshipEntity> byId = relationshipEntityRepository.findById(relationshipID);
+            if (!byId.isPresent()) {
+                addEmployeeToOrganization(entity, managerId);
+            }
+        }
+
+        if (!StringUtils.isNullOrEmpty(entity.groupId)) {
+            try {
+                String groupOwner = StringUtils.isNullOrEmpty(managerId) ? mAdminId : managerId;
+                GroupAdmin.transferGroup(mAdminId, entity.groupId, groupOwner, null, null);
+            } catch (Exception e) {
+                LOG.error("Failed to transfer group owner, groupId: {}, newOwner: {}", entity.groupId, managerId, e);
+                throw new IMServerException();
+            }
+        }
+
+        updateOrganizationMemberCount(entity.id);
+
         return RestResult.ok(null);
     }
 

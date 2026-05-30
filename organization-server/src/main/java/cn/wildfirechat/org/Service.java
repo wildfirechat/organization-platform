@@ -17,6 +17,7 @@ public interface Service {
     RestResult uploadMedia(MultipartFile file) throws Exception;
     RestResult createOrganization(OrganizationPojo organizationPojo) throws Exception;
     RestResult updateOrganization(OrganizationPojo organizationPojo) throws Exception;
+    RestResult setOrganizationManager(int id, String managerId) throws Exception;
     RestResult moveOrganization(int id, int newParentId) throws Exception;
     RestResult queryOrganization(int id);
     RestResult queryOrganizationEx(int id);
