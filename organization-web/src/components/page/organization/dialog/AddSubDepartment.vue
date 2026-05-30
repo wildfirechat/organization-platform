@@ -28,9 +28,6 @@
                     <el-button slot="append" type="text" icon="el-icon-edit" @click="showChooseMemberDialog = true"></el-button>
                 </el-input>
             </el-form-item>
-            <el-form-item label="是否创建部门群">
-                <el-checkbox v-model="createOrganizationGroup"></el-checkbox>
-            </el-form-item>
         </el-form>
         <div class="action-container">
             <el-button @click="onAddDepartment(false)">取消</el-button>
@@ -74,14 +71,13 @@ export default {
     data() {
         return {
             organization: {},
-            createOrganizationGroup: false,
             managers: [],
             showChooseMemberDialog: false
         }
     },
     computed: {
         confirmButtonEnable() {
-            return this.organization.name && this.managers.length === 1
+            return this.organization.name
         },
         initialCheckedMembers() {
             return this.managers.map(m => m.employeeId);
@@ -96,15 +92,13 @@ export default {
             this.managers = members;
         },
         onConfirm() {
-            if (this.managers.length === 0) {
-                this.$message.error('请选择部门负责人');
-                return;
+            if (this.managers.length > 0) {
+                this.organization.managerId = this.managers[0].employeeId;
             }
-            this.organization.managerId = this.managers[0].employeeId;
             this.orgStore.createOrganization({
                 organization: this.organization,
                 parentOrganization: this.parentDepartment,
-                createGroup: this.createOrganizationGroup,
+                createGroup: false,
             })
                 .then(res => {
                     console.log('create organization success', res)
