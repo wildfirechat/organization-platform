@@ -35,8 +35,12 @@
                                 :command="{ c: 'add-sub', node: node, depart: node.data }">添加子部门</el-dropdown-item>
                             <el-dropdown-item v-if="canMoveUp(node)"
                                 :command="{ c: 'move-up', node: node, depart: node.data }">上移</el-dropdown-item>
+                            <el-dropdown-item v-if="canMoveUp(node)"
+                                :command="{ c: 'move-to-top', node: node, depart: node.data }">移动到顶部</el-dropdown-item>
                             <el-dropdown-item v-if="canMoveDown(node)"
                                 :command="{ c: 'move-down', node: node, depart: node.data }">下移</el-dropdown-item>
+                            <el-dropdown-item v-if="canMoveDown(node)"
+                                :command="{ c: 'move-to-bottom', node: node, depart: node.data }">移动到底部</el-dropdown-item>
                             <el-dropdown-item style="color: red"
                                               :command="{ c: 'remove', node: node, depart: node.data }">删除部门</el-dropdown-item>
                         </el-dropdown-menu>
@@ -455,6 +459,30 @@ export default {
                                 this.updateTreeNode(parentNode);
                             });
                     }
+                    break;
+                }
+                case 'move-to-top': {
+                    const siblings = command.node.parent.childNodes;
+                    const firstSort = siblings[0].data.sort;
+                    const newSort = firstSort - 1;
+                    const org = this.buildSortUpdateOrg(command.depart, newSort);
+                    this.orgStore.updateOrganization(org)
+                        .then(() => {
+                            let parentNode = command.node.parent;
+                            this.updateTreeNode(parentNode);
+                        });
+                    break;
+                }
+                case 'move-to-bottom': {
+                    const siblings = command.node.parent.childNodes;
+                    const lastSort = siblings[siblings.length - 1].data.sort;
+                    const newSort = lastSort + 1;
+                    const org = this.buildSortUpdateOrg(command.depart, newSort);
+                    this.orgStore.updateOrganization(org)
+                        .then(() => {
+                            let parentNode = command.node.parent;
+                            this.updateTreeNode(parentNode);
+                        });
                     break;
                 }
                 default:
