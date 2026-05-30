@@ -96,8 +96,6 @@ export default {
         confirmButtonEnable() {
             return this.employee.name
                 && this.employee.mobile
-                && this.employee.email
-                && this.employee.title
                 && this.checkedDepartments.length > 0;
         }
     },
