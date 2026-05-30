@@ -75,7 +75,7 @@ export default {
             return this.manager ? [this.manager.employeeId] : [];
         },
         computedManager() {
-            return this.manager ? this.manager : this.currentDepartment.employees.filter(m => m.employeeId === this.currentDepartment.managerId)[0];
+            return this.manager ? this.manager : (this.currentDepartment.employees || []).filter(m => m.employeeId === this.currentDepartment.managerId)[0];
         }
     },
 
