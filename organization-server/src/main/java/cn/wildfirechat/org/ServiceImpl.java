@@ -1047,6 +1047,10 @@ public class ServiceImpl implements Service {
 
             //获取组织下所有成员
             List<String> members = relationshipEntityRepository.getOrganizationMembers(id);
+            if(!StringUtils.isNullOrEmpty(entity.managerId)) {
+                //管理员不在组织内？
+                members.add(entity.managerId);
+            }
 
             IMResult<OutputGroupMemberList> groupMemberListIMResult = GroupAdmin.getGroupMembers(entity.groupId);
             if (groupMemberListIMResult.getErrorCode() != ErrorCode.ERROR_CODE_SUCCESS) {
