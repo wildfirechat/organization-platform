@@ -9,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@Transactional
 public interface OrganizationEntityRepository extends CrudRepository<OrganizationEntity, Integer> {
     @Query(value = "select * from t_organization where parent_id = ?1 order by sort", nativeQuery = true)
     List<OrganizationEntity> findAllByParentId(int parentId);
@@ -22,8 +21,9 @@ public interface OrganizationEntityRepository extends CrudRepository<Organizatio
             nativeQuery = true)
     Page<OrganizationEntity> searchEntity(String keyword, Pageable pageable);
 
-    @Query(value = "update t_organization set member_count = (select count(distinct(employee_id)) from t_relationship where organization_id = ?1) where id = ?1", nativeQuery = true)
+    @Transactional
     @Modifying
+    @Query(value = "update t_organization set member_count = (select count(distinct(employee_id)) from t_relationship where organization_id = ?1) where id = ?1", nativeQuery = true)
     int updateOrganizationMemberCount(int organizationId);
 
     @Query(value = "select distinct parent_id from t_organization where parent_id in ?1", nativeQuery = true)
