@@ -46,8 +46,6 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/api/login", "anon");
         filterChainDefinitionMap.put("/api/user_login", "anon");
 
-        filterChainDefinitionMap.put("/**", "login");
-
         filterChainDefinitionMap.put("/api/update_pwd", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/account", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/logs", "perms[user:admin]");
@@ -78,7 +76,9 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/api/employee/search", "perms[user:view]");
         filterChainDefinitionMap.put("/api/relationship/employee", "perms[user:view]");
 
-        //主要这行代码必须放在所有权限设置的最后，不然会导致所有 url 都被拦截 剩余的都需要认证
+        // 通配匹配必须放在最后，否则会覆盖前面所有具体规则的权限控制
+        filterChainDefinitionMap.put("/**", "login");
+
         shiroFilterFactoryBean.setFilterChainDefinitionMap(filterChainDefinitionMap);
         shiroFilterFactoryBean.getFilters().put("login", new JsonAuthLoginFilter());
         shiroFilterFactoryBean.getFilters().put("perms", new WfPermissionsAuthorizationFilter());

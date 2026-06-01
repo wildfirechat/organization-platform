@@ -985,12 +985,13 @@ public class ServiceImpl implements Service {
             return RestResult.error(ERROR_NOT_EXIST);
         }
 
+        String groupId = entity.groupId;
         entity.groupId = null;
         entity.updateDt = System.currentTimeMillis();
         organizationEntityRepository.save(entity);
 
         try {
-            GroupAdmin.dismissGroup(mAdminId, entity.groupId, null, null);
+            GroupAdmin.dismissGroup(mAdminId, groupId, null, null);
         } catch (Exception e) {
             e.printStackTrace();
             throw new IMServerException();
