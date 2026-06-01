@@ -20,6 +20,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DBSessionDao implements SessionDAO {
     // 用于脏检查：缓存已持久化的 session 序列化数据，避免无变化时重复写入数据库
     private final Map<Object, byte[]> sessionDataCache = new ConcurrentHashMap<>();
+    // 读缓存：避免同一 session 在短时间内重复读库
+    private final Map<Object, Session> sessionReadCache = new ConcurrentHashMap<>();
 
     @Autowired
     private ShiroSessionRepository shiroSessionRepository;
@@ -35,12 +37,18 @@ public class DBSessionDao implements SessionDAO {
 
     @Override
     public Session readSession(Serializable sessionId) throws UnknownSessionException {
+        Session cached = sessionReadCache.get(sessionId);
+        if (cached != null) {
+            return cached;
+        }
+
         ShiroSession shiroSession = shiroSessionRepository.findById((String) sessionId).orElse(null);
         if (shiroSession != null) {
             Session session = byteToSession(shiroSession.getSessionData());
             if (session != null) {
                 // 同步到缓存，用于后续脏检查比对
                 sessionDataCache.put(sessionId, shiroSession.getSessionData());
+                sessionReadCache.put(sessionId, session);
             }
             return session;
         }
@@ -64,12 +72,14 @@ public class DBSessionDao implements SessionDAO {
         ShiroSession shiroSession = new ShiroSession((String) sessionId, currentBytes);
         shiroSessionRepository.save(shiroSession);
         sessionDataCache.put(sessionId, currentBytes);
+        sessionReadCache.put(sessionId, session);
     }
 
     @Override
     public void delete(Session session) {
         Object sessionId = session.getId();
         sessionDataCache.remove(sessionId);
+        sessionReadCache.remove(sessionId);
         shiroSessionRepository.deleteById((String) sessionId);
     }
 
