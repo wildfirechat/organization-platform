@@ -1,5 +1,5 @@
 <template>
-    <div class='bgg' :style="{'backgroundImage':'url(' +require('../../assets/images/pic.png') + ')'}">
+    <div class='bgg' :style="{'backgroundImage':'url(' +require('../../assets/images/pic.webp') + ')'}">
         <div class="ms-title">野火IM组织架构管理后台</div>
         <div class="ms-login">
             <el-form @submit.native.prevent :model="loginForm" :rules="rules" ref="loginForm" :inline="false"
