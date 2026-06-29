@@ -1602,6 +1602,49 @@ public class ServiceImpl implements Service {
     }
 
 
+    private static class ImportRow {
+        String userId;
+        String name;
+        String mobile;
+        String email;
+        String department;
+        String jobNumber;
+        String gender;
+        String city;
+        String type;
+        String manager;
+        String office;
+        String ext;
+        String joinTime;
+        String title;
+        String level;
+        String password;
+    }
+
+    private static final int IMPORT_QUERY_BATCH_SIZE = 1000;
+
+    private boolean mobileExistsInBatches(Collection<String> mobiles) {
+        List<String> mobileList = new ArrayList<>(mobiles);
+        for (int i = 0; i < mobileList.size(); i += IMPORT_QUERY_BATCH_SIZE) {
+            List<String> batch = mobileList.subList(i, Math.min(i + IMPORT_QUERY_BATCH_SIZE, mobileList.size()));
+            if (employeeEntityRepository.checkMobileExists(batch) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean employeeIdExistsInBatches(Collection<String> employeeIds) {
+        List<String> idList = new ArrayList<>(employeeIds);
+        for (int i = 0; i < idList.size(); i += IMPORT_QUERY_BATCH_SIZE) {
+            List<String> batch = idList.subList(i, Math.min(i + IMPORT_QUERY_BATCH_SIZE, idList.size()));
+            if (employeeEntityRepository.checkEmployeeIdExists(batch) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public RestResult importOrganization(MultipartFile file) {
         LOG.info("Service: importOrganization, fileName: {}, size: {}", file.getOriginalFilename(), file.getSize());
@@ -1616,6 +1659,14 @@ public class ServiceImpl implements Service {
             Map<String, EmployeeModel> employeeEmailMap = new HashMap<>();
             int employeeSort = 0;
             int departmentSort = 0;
+
+            // 判断是否为首次导入，首次导入时跳过本地存在检查
+            boolean firstImport = employeeEntityRepository.count() == 0;
+
+            // 第一遍：读取并缓存所有行，同时收集需要去重校验的手机号和用户ID
+            List<ImportRow> rows = new ArrayList<>();
+            Set<String> allMobiles = new HashSet<>();
+            Set<String> allUserIds = new HashSet<>();
             while (it.hasNext()) {
                 Row row = it.next();
                 if (currentRow == 0) {
@@ -1626,173 +1677,213 @@ public class ServiceImpl implements Service {
                     LOG.info("读取表内容");
                     //读取出来所有数据
                     int index = 0;
-                    String userId = getStringValue(row.getCell(index++));
-                    String name = getStringValue(row.getCell(index++));
-                    String mobile = getStringValue(row.getCell(index++));
-                    String email = getStringValue(row.getCell(index++));
-                    String department = getStringValue(row.getCell(index++)).replace("，", ",").trim();
-                    String jobNumber = getStringValue(row.getCell(index++));
-                    String gender = getStringValue(row.getCell(index++));
-                    String city = getStringValue(row.getCell(index++));
-                    String type = getStringValue(row.getCell(index++));
-                    String manager = getStringValue(row.getCell(index++)).replace("，", ",").trim();
-                    String office = getStringValue(row.getCell(index++));
-                    String ext = getStringValue(row.getCell(index++));
-                    String joinTime = getStringValue(row.getCell(index++));
-                    String title = getStringValue(row.getCell(index++));
-                    String level = getStringValue(row.getCell(index++));
-                    String password = getStringValue(row.getCell(index++));
+                    ImportRow importRow = new ImportRow();
+                    importRow.userId = getStringValue(row.getCell(index++));
+                    importRow.name = getStringValue(row.getCell(index++));
+                    importRow.mobile = getStringValue(row.getCell(index++));
+                    importRow.email = getStringValue(row.getCell(index++));
+                    importRow.department = getStringValue(row.getCell(index++)).replace("，", ",").trim();
+                    importRow.jobNumber = getStringValue(row.getCell(index++));
+                    importRow.gender = getStringValue(row.getCell(index++));
+                    importRow.city = getStringValue(row.getCell(index++));
+                    importRow.type = getStringValue(row.getCell(index++));
+                    importRow.manager = getStringValue(row.getCell(index++)).replace("，", ",").trim();
+                    importRow.office = getStringValue(row.getCell(index++));
+                    importRow.ext = getStringValue(row.getCell(index++));
+                    importRow.joinTime = getStringValue(row.getCell(index++));
+                    importRow.title = getStringValue(row.getCell(index++));
+                    importRow.level = getStringValue(row.getCell(index++));
+                    importRow.password = getStringValue(row.getCell(index++));
 
-                    if(StringUtils.isNullOrEmpty(mobile) && StringUtils.isNullOrEmpty(name) && StringUtils.isNullOrEmpty(department)) {
+                    if(StringUtils.isNullOrEmpty(importRow.mobile) && StringUtils.isNullOrEmpty(importRow.name) && StringUtils.isNullOrEmpty(importRow.department)) {
                         //空行
                         continue;
                     }
 
-                    //检查电话号码是否存在检查是否重复
-                    if (StringUtils.isNullOrEmpty(mobile)) {
-                        return RestResult.result(ERROR_SERVER_ERROR, "电话号码不能为空");
-                    }
-                    EmployeeModel employeeModel = employeeMobileMap.get(mobile);
-                    if (employeeModel != null) {
-                        return RestResult.result(ERROR_SERVER_ERROR, "重复的电话号码");
+                    //检查电话号码是否为空
+                    if (StringUtils.isNullOrEmpty(importRow.mobile)) {
+                        return RestResult.result(ERROR_SERVER_ERROR, importRow.name + " 电话号码不能为空");
                     }
 
-                    //检查是否存在邮箱重复
-                    if (!StringUtils.isNullOrEmpty(email)) {
-                        employeeModel = employeeEmailMap.get(email);
-                        if (employeeModel != null) {
-                            return RestResult.result(ERROR_SERVER_ERROR, "重复的邮箱");
-                        }
-                    }
-
-                    //检查是否存在用户ID重复
-                    if (!StringUtils.isNullOrEmpty(userId)) {
-                        employeeModel = employeeUserIdMap.get(userId);
-                        if (employeeModel != null) {
-                            return RestResult.result(ERROR_SERVER_ERROR, "重复的用户ID");
-                        }
-                    }
-
-                    //创建用户数据
-                    EmployeeEntity employeeEntity = new EmployeeEntity();
-                    employeeEntity.employeeId = userId;
-                    employeeEntity.name = name;
-                    employeeEntity.mobile = mobile;
-                    employeeEntity.email = email;
-                    employeeEntity.jobNumber = jobNumber;
-                    employeeEntity.gender = StringUtils.isNullOrEmpty(gender) ? 0 : (gender.equals("男") ? 1 : 2);
-                    employeeEntity.city = city;
-                    employeeEntity.type = "正式".equals(type) ? 0 : 1;
-                    employeeEntity.office = office;
-                    employeeEntity.ext = ext;
-                    employeeEntity.joinTime = joinTime;
-                    employeeEntity.title = title;
-                    employeeEntity.level = 0;
-                    employeeEntity.sort = ++employeeSort;
-                    if(!StringUtils.isNullOrEmpty(level)) {
-                        try {
-                            employeeEntity.level = Integer.parseInt(level);
-                        } catch (NumberFormatException e) {
-                            e.printStackTrace();
-                        }
-                    }
-
-                    //创建用户model
-                    employeeModel = new EmployeeModel(employeeEntity);
-                    employeeModel.password = password;
-                    employeeMobileMap.put(mobile, employeeModel);
-                    if (!StringUtils.isNullOrEmpty(email)) {
-                        employeeEmailMap.put(email, employeeModel);
-                    }
-                    if (!StringUtils.isNullOrEmpty(userId)) {
-                        employeeUserIdMap.put(userId, employeeModel);
-                    }
-
-                    //处理部门路径和是否部门负责人
-                    department = department.replace("，", ",").trim();
-                    String[] paths = department.split(",");
-                    String[] mgs = manager.split(",");
-                    if (paths.length == 0) {
-                        return RestResult.result(ERROR_SERVER_ERROR, "部门路径不存在");
-                    }
-                    if (paths.length != mgs.length) {
-                        if(mgs.length == 1 && StringUtils.isNullOrEmpty(mgs[0])) {
-                            mgs = new String[paths.length];
-                            for (int i = 0; i < paths.length; i++) {
-                                mgs[i] = "否";
-                            }
-                        } else {
-                            return RestResult.result(ERROR_SERVER_ERROR, "部门和负责人数量不匹配");
-                        }
-                    }
-
-                    //循环处理部门路径
-                    for (int i = 0; i < paths.length; i++) {
-                        String path = paths[i].trim();
-                        if (StringUtils.isNullOrEmpty(path)) {
-                            return RestResult.result(ERROR_SERVER_ERROR, "部门路径");
-                        }
-                        String mg = mgs[i].trim();
-
-                        String[] departNameArray = path.split("/");
-                        OrganizationTree currentNode = null;
-                        for (String departName : departNameArray) {
-                            departName = departName.trim();
-                            if (StringUtils.isNullOrEmpty(departName)) {
-                                return RestResult.result(ERROR_SERVER_ERROR, "部门名称为空");
-                            }
-
-                            if (currentNode == null) {
-                                //寻找根路径
-                                for (OrganizationTree tree : trees) {
-                                    if (tree.entity.name.equals(departName)) {
-                                        currentNode = tree;
-                                        break;
-                                    }
-                                }
-
-                                //如果根路径不存在，创建
-                                if (currentNode == null) {
-                                    OrganizationEntity organizationEntity = new OrganizationEntity();
-                                    organizationEntity.name = departName;
-                                    organizationEntity.sort = ++departmentSort;
-                                    currentNode = new OrganizationTree((organizationEntity));
-                                    trees.add(currentNode);
-                                }
-                                continue;
-                            }
-
-                            boolean existNode = false;
-                            for (OrganizationTree node : currentNode.nodes) {
-                                if (node.entity.name.equals(departName)) {
-                                    currentNode = node;
-                                    existNode = true;
-                                    break;
-                                }
-                            }
-                            if (!existNode) {
-                                OrganizationEntity organizationEntity = new OrganizationEntity();
-                                organizationEntity.name = departName;
-                                organizationEntity.sort = ++departmentSort;
-                                OrganizationTree tree = new OrganizationTree((organizationEntity));
-                                tree.parent = currentNode;
-                                currentNode.nodes.add(tree);
-                                currentNode = tree;
-                            }
-                        }
-                        if (currentNode != null) {
-                            currentNode.leaves.add(employeeModel);
-                            if ("是".equals(mg)) {
-                                currentNode.manager = employeeModel;
-                            }
-                            employeeModel.organizationTrees.add(currentNode);
-                        } else {
-                            LOG.error("should not here");
-                        }
+                    rows.add(importRow);
+                    allMobiles.add(importRow.mobile);
+                    if (!StringUtils.isNullOrEmpty(importRow.userId)) {
+                        allUserIds.add(importRow.userId);
                     }
                 }
                 currentRow++;
             }
+
+            // 非首次导入时，批量检查数据库中是否已存在该员工
+            if (!firstImport) {
+                if (!allMobiles.isEmpty() && mobileExistsInBatches(allMobiles)) {
+                    return RestResult.result(ERROR_SERVER_ERROR, "导入的电话号码中已存在");
+                }
+
+                if (!allUserIds.isEmpty() && employeeIdExistsInBatches(allUserIds)) {
+                    return RestResult.result(ERROR_SERVER_ERROR, "导入的用户ID中已存在");
+                }
+            }
+
+            // 第二遍：处理组织结构和员工数据
+            for (ImportRow importRow : rows) {
+                String userId = importRow.userId;
+                String name = importRow.name;
+                String mobile = importRow.mobile;
+                String email = importRow.email;
+                String department = importRow.department;
+                String jobNumber = importRow.jobNumber;
+                String gender = importRow.gender;
+                String city = importRow.city;
+                String type = importRow.type;
+                String manager = importRow.manager;
+                String office = importRow.office;
+                String ext = importRow.ext;
+                String joinTime = importRow.joinTime;
+                String title = importRow.title;
+                String level = importRow.level;
+                String password = importRow.password;
+
+                EmployeeModel employeeModel = employeeMobileMap.get(mobile);
+                if (employeeModel != null) {
+                    return RestResult.result(ERROR_SERVER_ERROR, mobile + " 重复的电话号码");
+                }
+
+                //检查是否存在邮箱重复
+                if (!StringUtils.isNullOrEmpty(email)) {
+                    employeeModel = employeeEmailMap.get(email);
+                    if (employeeModel != null) {
+                        return RestResult.result(ERROR_SERVER_ERROR, email + " 重复的邮箱");
+                    }
+                }
+
+                //检查是否存在用户ID重复
+                if (!StringUtils.isNullOrEmpty(userId)) {
+                    employeeModel = employeeUserIdMap.get(userId);
+                    if (employeeModel != null) {
+                        return RestResult.result(ERROR_SERVER_ERROR, userId + " 重复的用户ID");
+                    }
+                }
+
+                //创建用户数据
+                EmployeeEntity employeeEntity = new EmployeeEntity();
+                employeeEntity.employeeId = userId;
+                employeeEntity.name = name;
+                employeeEntity.mobile = mobile;
+                employeeEntity.email = email;
+                employeeEntity.jobNumber = jobNumber;
+                employeeEntity.gender = StringUtils.isNullOrEmpty(gender) ? 0 : (gender.equals("男") ? 1 : 2);
+                employeeEntity.city = city;
+                employeeEntity.type = "正式".equals(type) ? 0 : 1;
+                employeeEntity.office = office;
+                employeeEntity.ext = ext;
+                employeeEntity.joinTime = joinTime;
+                employeeEntity.title = title;
+                employeeEntity.level = 0;
+                employeeEntity.sort = ++employeeSort;
+                if(!StringUtils.isNullOrEmpty(level)) {
+                    try {
+                        employeeEntity.level = Integer.parseInt(level);
+                    } catch (NumberFormatException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                //创建用户model
+                employeeModel = new EmployeeModel(employeeEntity);
+                employeeModel.password = password;
+                employeeMobileMap.put(mobile, employeeModel);
+                if (!StringUtils.isNullOrEmpty(email)) {
+                    employeeEmailMap.put(email, employeeModel);
+                }
+                if (!StringUtils.isNullOrEmpty(userId)) {
+                    employeeUserIdMap.put(userId, employeeModel);
+                }
+
+                //处理部门路径和是否部门负责人
+                department = department.replace("，", ",").trim();
+                String[] paths = department.split(",");
+                String[] mgs = manager.split(",");
+                if (paths.length == 0) {
+                    return RestResult.result(ERROR_SERVER_ERROR, name + " 部门路径不存在");
+                }
+                if (paths.length != mgs.length) {
+                    if(mgs.length == 1 && StringUtils.isNullOrEmpty(mgs[0])) {
+                        mgs = new String[paths.length];
+                        for (int i = 0; i < paths.length; i++) {
+                            mgs[i] = "否";
+                        }
+                    } else {
+                        return RestResult.result(ERROR_SERVER_ERROR, name + " 部门和负责人数量不匹配");
+                    }
+                }
+
+                //循环处理部门路径
+                for (int i = 0; i < paths.length; i++) {
+                    String path = paths[i].trim();
+                    if (StringUtils.isNullOrEmpty(path)) {
+                        return RestResult.result(ERROR_SERVER_ERROR, name + " 部门路径不正确");
+                    }
+                    String mg = mgs[i].trim();
+
+                    String[] departNameArray = path.split("/");
+                    OrganizationTree currentNode = null;
+                    for (String departName : departNameArray) {
+                        departName = departName.trim();
+                        if (StringUtils.isNullOrEmpty(departName)) {
+                            return RestResult.result(ERROR_SERVER_ERROR, name + " 部门名称为空");
+                        }
+
+                        if (currentNode == null) {
+                            //寻找根路径
+                            for (OrganizationTree tree : trees) {
+                                if (tree.entity.name.equals(departName)) {
+                                    currentNode = tree;
+                                    break;
+                                }
+                            }
+
+                            //如果根路径不存在，创建
+                            if (currentNode == null) {
+                                OrganizationEntity organizationEntity = new OrganizationEntity();
+                                organizationEntity.name = departName;
+                                organizationEntity.sort = ++departmentSort;
+                                currentNode = new OrganizationTree((organizationEntity));
+                                trees.add(currentNode);
+                            }
+                            continue;
+                        }
+
+                        boolean existNode = false;
+                        for (OrganizationTree node : currentNode.nodes) {
+                            if (node.entity.name.equals(departName)) {
+                                currentNode = node;
+                                existNode = true;
+                                break;
+                            }
+                        }
+                        if (!existNode) {
+                            OrganizationEntity organizationEntity = new OrganizationEntity();
+                            organizationEntity.name = departName;
+                            organizationEntity.sort = ++departmentSort;
+                            OrganizationTree tree = new OrganizationTree((organizationEntity));
+                            tree.parent = currentNode;
+                            currentNode.nodes.add(tree);
+                            currentNode = tree;
+                        }
+                    }
+                    if (currentNode != null) {
+                        currentNode.leaves.add(employeeModel);
+                        if ("是".equals(mg)) {
+                            currentNode.manager = employeeModel;
+                        }
+                        employeeModel.organizationTrees.add(currentNode);
+                    } else {
+                        LOG.error("should not here");
+                    }
+                }
+            }
+
             saveOrganization(trees, employeeMobileMap);
             LOG.info("Organization imported successfully");
             return RestResult.ok(null);
@@ -1842,7 +1933,9 @@ public class ServiceImpl implements Service {
             }
         }
         LOG.info("Save organization {}", entity.name);
-        organizationEntityRepository.save(entity);
+        if(!organizationEntityRepository.existsById(entity.id)) {
+            organizationEntityRepository.save(entity);
+        }
 
         for (OrganizationTree node : tree.nodes) {
             importOrganization(node);
