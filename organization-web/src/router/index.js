@@ -46,6 +46,11 @@ export default new Router({
                     meta: {title: '批量导入成员'}
                 },
                 {
+                    path: '/organization/logs',
+                    component: resolve => require(['../components/page/organization/OperationLog.vue'], resolve),
+                    meta: {title: '操作日志'}
+                },
+                {
                     path: '/updatePwd',
                     component: resolve => require(['../components/page/UpdatePwd.vue'], resolve),
                     meta: {title: '更新密码'}

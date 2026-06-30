@@ -21,5 +21,8 @@ public class OperationLogEntity implements Serializable {
     public String operationDesc;
 
     @Column
+    public int result;
+
+    @Column
     public long timestamp;
 }

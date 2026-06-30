@@ -28,6 +28,14 @@ public class ApiController {
     @Autowired
     private Service mService;
 
+    private void recordOpLog(String operation, String value, Object result) {
+        boolean success = false;
+        if (result instanceof RestResult) {
+            success = ((RestResult) result).getCode() == 0;
+        }
+        mService.recordOpLog(operation, value, success);
+    }
+
     @ResponseBody
     @ExceptionHandler(Exception.class)
     public Object handleException(Exception e) {
@@ -63,7 +71,9 @@ public class ApiController {
     @PostMapping(value = "update_pwd", produces = "application/json;charset=UTF-8")
     public Object updatePwd(@RequestBody UpdatePasswordRequest request) {
         LOG.info("Request: update_pwd");
-        return mService.updatePassword(request.oldPassword, request.newPassword);
+        Object result = mService.updatePassword(request.oldPassword, request.newPassword);
+        recordOpLog("修改管理员密码", "", result);
+        return result;
     }
 
     /*
@@ -95,8 +105,9 @@ public class ApiController {
     @PostMapping(value = "organization/create", produces = "application/json;charset=UTF-8")
     public Object createOrganization(@RequestBody OrganizationPojo organizationPojo) throws Exception {
         LOG.info("Request: createOrganization, name: {}, parentId: {}", organizationPojo.name, organizationPojo.parentId);
-        mService.recordOpLog("创建部门", organizationPojo.id + "");
-        return mService.createOrganization(organizationPojo);
+        Object result = mService.createOrganization(organizationPojo);
+        recordOpLog("创建部门", "部门ID：" + organizationPojo.id + "，名称：" + organizationPojo.name, result);
+        return result;
     }
 
     /**
@@ -110,16 +121,18 @@ public class ApiController {
     @PostMapping(value = "organization/update", produces = "application/json;charset=UTF-8")
     public Object updateOrganization(@RequestBody OrganizationPojo organizationPojo) throws Exception {
         LOG.info("Request: updateOrganization, id: {}, name: {}", organizationPojo.id, organizationPojo.name);
-        mService.recordOpLog("更新部门", organizationPojo.id + "");
-        return mService.updateOrganization(organizationPojo);
+        Object result = mService.updateOrganization(organizationPojo);
+        recordOpLog("更新部门", "部门ID：" + organizationPojo.id + "，名称：" + organizationPojo.name, result);
+        return result;
     }
 
     @Transactional
     @PostMapping(value = "organization/set_manager", produces = "application/json;charset=UTF-8")
     public Object setOrganizationManager(@RequestBody SetOrganizationManagerPojo pojo) throws Exception {
         LOG.info("Request: setOrganizationManager, id: {}, managerId: {}", pojo.id, pojo.managerId);
-        mService.recordOpLog("设置部门管理员", pojo.id + "");
-        return mService.setOrganizationManager(pojo.id, pojo.managerId);
+        Object result = mService.setOrganizationManager(pojo.id, pojo.managerId);
+        recordOpLog("设置部门管理员", "部门ID：" + pojo.id + "，管理员ID：" + pojo.managerId, result);
+        return result;
     }
 
     /**
@@ -133,8 +146,9 @@ public class ApiController {
     @PostMapping(value = "organization/move", produces = "application/json;charset=UTF-8")
     public Object moveOrganization(@RequestBody MoveOrganizationPojo moveOrganizationPojo) throws Exception {
         LOG.info("Request: moveOrganization, organizationId: {}, newParentId: {}", moveOrganizationPojo.organizationId, moveOrganizationPojo.newParentId);
-        mService.recordOpLog("移动部门", moveOrganizationPojo.organizationId + "," + moveOrganizationPojo.newParentId);
-        return mService.moveOrganization(moveOrganizationPojo.organizationId, moveOrganizationPojo.newParentId);
+        Object result = mService.moveOrganization(moveOrganizationPojo.organizationId, moveOrganizationPojo.newParentId);
+        recordOpLog("移动部门", "部门ID：" + moveOrganizationPojo.organizationId + "，新父部门ID：" + moveOrganizationPojo.newParentId, result);
+        return result;
     }
 
     /**
@@ -212,8 +226,9 @@ public class ApiController {
     @PostMapping(value = "organization/delete", produces = "application/json;charset=UTF-8")
     public Object deleteOrganization(@RequestBody OrganizationIdPojo idPojo) throws Exception {
         LOG.info("Request: deleteOrganization, id: {}", idPojo.id);
-        mService.recordOpLog("删除部门", idPojo.id + "");
-        return mService.deleteOrganization(idPojo.id);
+        Object result = mService.deleteOrganization(idPojo.id);
+        recordOpLog("删除部门", "部门ID：" + idPojo.id, result);
+        return result;
     }
 
     /**
@@ -253,8 +268,9 @@ public class ApiController {
     @PostMapping(value = "organization/create_group", produces = "application/json;charset=UTF-8")
     public Object createOrganizationGroup(@RequestBody OrganizationGroupPojo groupPojo) throws Exception {
         LOG.info("Request: createOrganizationGroup, id: {}, groupId: {}", groupPojo.id, groupPojo.groupId);
-        mService.recordOpLog("创建工作群", groupPojo.id+","+groupPojo.groupId);
-        return mService.createOrganizationGroup(groupPojo.id, groupPojo.groupId);
+        Object result = mService.createOrganizationGroup(groupPojo.id, groupPojo.groupId);
+        recordOpLog("创建工作群", "部门ID：" + groupPojo.id + "，群ID：" + groupPojo.groupId, result);
+        return result;
     }
 
     /**
@@ -268,8 +284,9 @@ public class ApiController {
     @PostMapping(value = "organization/dismiss_group", produces = "application/json;charset=UTF-8")
     public Object dismissOrganizationGroup(@RequestBody OrganizationIdPojo idPojo) throws Exception {
         LOG.info("Request: dismissOrganizationGroup, id: {}", idPojo.id);
-        mService.recordOpLog("解散工作群", idPojo.id+"");
-        return mService.dismissOrganizationGroup(idPojo.id);
+        Object result = mService.dismissOrganizationGroup(idPojo.id);
+        recordOpLog("解散工作群", "部门ID：" + idPojo.id, result);
+        return result;
     }
 
     /**
@@ -283,8 +300,9 @@ public class ApiController {
     @PostMapping(value = "organization/repair_group", produces = "application/json;charset=UTF-8")
     public Object repairOrganizationGroup(@RequestBody OrganizationIdPojo idPojo) throws Exception {
         LOG.info("Request: repairOrganizationGroup, id: {}", idPojo.id);
-        mService.recordOpLog("修复工作群", idPojo.id+"");
-        return mService.repairOrganizationGroup(idPojo.id);
+        Object result = mService.repairOrganizationGroup(idPojo.id);
+        recordOpLog("修复工作群", "部门ID：" + idPojo.id, result);
+        return result;
     }
 
     /**
@@ -298,8 +316,9 @@ public class ApiController {
     @PostMapping(value = "employee/create", produces = "application/json;charset=UTF-8")
     public Object createEmployee(@RequestBody EmployeePojo employeePojo) throws Exception {
         LOG.info("Request: createEmployee, employeeId: {}, name: {}, organizationId: {}", employeePojo.employeeId, employeePojo.name, employeePojo.organizationId);
-        mService.recordOpLog("添加新员工", employeePojo.employeeId);
-        return mService.createEmployee(employeePojo);
+        Object result = mService.createEmployee(employeePojo);
+        recordOpLog("添加新员工", "姓名：" + employeePojo.name + "，手机号：" + employeePojo.mobile + "，用户ID：" + employeePojo.employeeId, result);
+        return result;
     }
 
     /**
@@ -313,8 +332,9 @@ public class ApiController {
     @PostMapping(value = "employee/update", produces = "application/json;charset=UTF-8")
     public Object updateEmployee(@RequestBody EmployeePojo employeePojo) throws Exception {
         LOG.info("Request: updateEmployee, employeeId: {}, name: {}", employeePojo.employeeId, employeePojo.name);
-        mService.recordOpLog("更新员工信息", employeePojo.employeeId);
-        return mService.updateEmployee(employeePojo);
+        Object result = mService.updateEmployee(employeePojo);
+        recordOpLog("更新员工信息", "姓名：" + employeePojo.name + "，用户ID：" + employeePojo.employeeId, result);
+        return result;
     }
 
     /**
@@ -328,8 +348,9 @@ public class ApiController {
     @PostMapping(value = "employee/move", produces = "application/json;charset=UTF-8")
     public Object moveEmployee(@RequestBody MoveEmployeePojo moveEmployeePojo) throws Exception {
         LOG.info("Request: moveEmployee, employeeId: {}, organizations: {}", moveEmployeePojo.employeeId, moveEmployeePojo.organizations);
-        mService.recordOpLog("员工转移部门", moveEmployeePojo.employeeId + "," + moveEmployeePojo.organizations);
-        return mService.moveEmployee(moveEmployeePojo.employeeId, moveEmployeePojo.organizations);
+        Object result = mService.moveEmployee(moveEmployeePojo.employeeId, moveEmployeePojo.organizations);
+        recordOpLog("员工转移部门", "用户ID：" + moveEmployeePojo.employeeId + "，目标部门：" + moveEmployeePojo.organizations, result);
+        return result;
     }
 
     /**
@@ -382,8 +403,9 @@ public class ApiController {
     @PostMapping(value = "employee/delete", produces = "application/json;charset=UTF-8")
     public Object deleteEmployee(@RequestBody DeleteEmployeePojo pojo) throws Exception {
         LOG.info("Request: deleteEmployee, employeeId: {}, destroyIMUser: {}", pojo.employeeId, pojo.destroyIMUser);
-        mService.recordOpLog("删除员工", pojo.employeeId + "," + pojo.destroyIMUser);
-        return mService.deleteEmployee(pojo.employeeId, pojo.destroyIMUser);
+        Object result = mService.deleteEmployee(pojo.employeeId, pojo.destroyIMUser);
+        recordOpLog("删除员工", "用户ID：" + pojo.employeeId + "，是否删除IM用户：" + pojo.destroyIMUser, result);
+        return result;
     }
 
     /**
@@ -397,8 +419,9 @@ public class ApiController {
     @PostMapping(value = "employee/update_password", produces = "application/json;charset=UTF-8")
     public Object updateEmployeePassword(@RequestBody UpdateEmployeePasswordRequest request) throws Exception {
         LOG.info("Request: updateEmployeePassword, employeeId: {}", request.getEmployeeId());
-        mService.recordOpLog("修改员工密码", request.getEmployeeId());
-        return mService.updateEmployeePassword(request.getEmployeeId(), request.getPassword());
+        Object result = mService.updateEmployeePassword(request.getEmployeeId(), request.getPassword());
+        recordOpLog("修改员工密码", "用户ID：" + request.getEmployeeId(), result);
+        return result;
     }
 
     /**
@@ -458,8 +481,16 @@ public class ApiController {
     @PostMapping(value = "/import")
     public Object uploadFiles(@RequestParam("file") MultipartFile file) throws IOException {
         LOG.info("Request: importOrganization, fileName: {}, size: {}", file.getOriginalFilename(), file.getSize());
-        mService.recordOpLog("导入组织结构", "");
-        return mService.importOrganization(file);
+        Object result = mService.importOrganization(file);
+        recordOpLog("提交批量导入", "文件名：" + file.getOriginalFilename() + "，大小：" + file.getSize() + " 字节", result);
+        return result;
+    }
+
+    @ResponseBody
+    @GetMapping(value = "/import/{jobId}", produces = "application/json;charset=UTF-8")
+    public Object queryImportJob(@PathVariable("jobId") String jobId) {
+        LOG.info("Request: queryImportJob, jobId: {}", jobId);
+        return mService.queryImportJob(jobId);
     }
 
     @ResponseBody
@@ -467,8 +498,9 @@ public class ApiController {
     @PostMapping(value = "/reset_all")
     public Object resetAll() throws IOException {
         LOG.info("Request: resetAll");
-        mService.recordOpLog("清除所有数据", "");
-        return mService.resetAll();
+        Object result = mService.resetAll();
+        recordOpLog("清除所有数据", "", result);
+        return result;
     }
 
     @ResponseBody
@@ -476,5 +508,12 @@ public class ApiController {
     public Object getLogs(@RequestParam(name = "page", defaultValue = "0")int page, @RequestParam(name = "count", defaultValue = "20")int count) throws IOException {
         LOG.info("Request: getLogs, page: {}, count: {}", page, count);
         return mService.getLogs(page, count);
+    }
+
+    @ResponseBody
+    @PostMapping(value = "/logs/clear")
+    public Object clearLogs() {
+        LOG.info("Request: clearLogs");
+        return mService.clearOperationLogs();
     }
 }

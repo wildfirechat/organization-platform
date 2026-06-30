@@ -43,8 +43,11 @@ public interface Service {
 
     RestResult queryEmployeeRelationship(String employeeId);
     RestResult importOrganization(MultipartFile file);
+    RestResult queryImportJob(String jobId);
     RestResult resetAll();
 
-    void recordOpLog(String operation, String value);
+    void recordOpLog(String operation, String value, boolean success);
+    void recordOpLog(String userId, String operation, String value, boolean success);
     RestResult getLogs(int page, int count);
+    RestResult clearOperationLogs();
 }

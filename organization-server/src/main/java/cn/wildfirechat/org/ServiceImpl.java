@@ -59,8 +59,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -69,7 +71,9 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static cn.wildfirechat.org.RestResult.RestCode.*;
@@ -122,12 +126,49 @@ public class ServiceImpl implements Service {
     @Autowired(required = false)
     private UserPasswordRepository userPasswordRepository;
 
+    @Autowired
+    private ImportJobRepository importJobRepository;
+
     private RateLimiter rateLimiter;
+
+    private final ExecutorService importExecutor = Executors.newSingleThreadExecutor();
 
     @PostConstruct
     private void init() {
         AdminConfig.initAdmin(mAdminUrl, mAdminSecret);
         rateLimiter = new RateLimiter(60, 200);
+        markInterruptedImportJobsAsFailed();
+    }
+
+    private void markInterruptedImportJobsAsFailed() {
+        try {
+            Iterable<ImportJobEntity> allJobs = importJobRepository.findAll();
+            long now = System.currentTimeMillis();
+            for (ImportJobEntity entity : allJobs) {
+                if (ImportJob.STATUS_PROCESSING.equals(entity.status)) {
+                    entity.status = ImportJob.STATUS_FAILED;
+                    entity.errorMessage = "服务重启，导入中断";
+                    entity.updateDt = now;
+                    importJobRepository.save(entity);
+                    LOG.info("Marked interrupted import job {} as FAILED", entity.jobId);
+                }
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to mark interrupted import jobs as failed", e);
+        }
+    }
+
+    @PreDestroy
+    private void destroy() {
+        importExecutor.shutdown();
+        try {
+            if (!importExecutor.awaitTermination(60, TimeUnit.SECONDS)) {
+                importExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            importExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
     public RestResult login(HttpServletResponse httpResponse, String account, String password) {
@@ -1193,6 +1234,16 @@ public class ServiceImpl implements Service {
                     needCreateUserInImServer = false;
                     inputOutputUserInfo.setName(outputUserInfoIMResult.getResult().getName());
                 } else if (outputUserInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_NOT_EXIST) {
+                    if (!StringUtils.isNullOrEmpty(employeePojo.mobile)) {
+                        IMResult<InputOutputUserInfo> mobileUserResult = retryImCall(() -> UserAdmin.getUserByMobile(employeePojo.mobile), "getUserByMobile");
+                        if (mobileUserResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
+                            LOG.warn("Create employee failed - employeeId not exist but mobile already used by another user: employeeId={}, mobile={}, existingUserId={}",
+                                employeePojo.employeeId, employeePojo.mobile, mobileUserResult.getResult().getUserId());
+                            return RestResult.result(ERROR_SERVER_ERROR, "用户ID不存在，但手机号已被其他用户使用");
+                        } else if (mobileUserResult.getErrorCode() != ErrorCode.ERROR_CODE_NOT_EXIST) {
+                            throw new IMServerException();
+                        }
+                    }
                     needCreateUserInImServer = true;
                 } else {
                     throw new IMServerException();
@@ -1623,33 +1674,193 @@ public class ServiceImpl implements Service {
 
     private static final int IMPORT_QUERY_BATCH_SIZE = 1000;
 
-    private boolean mobileExistsInBatches(Collection<String> mobiles) {
+    private List<String> findExistingMobilesInBatches(Collection<String> mobiles) {
+        List<String> existing = new ArrayList<>();
         List<String> mobileList = new ArrayList<>(mobiles);
         for (int i = 0; i < mobileList.size(); i += IMPORT_QUERY_BATCH_SIZE) {
             List<String> batch = mobileList.subList(i, Math.min(i + IMPORT_QUERY_BATCH_SIZE, mobileList.size()));
-            if (employeeEntityRepository.checkMobileExists(batch) != null) {
-                return true;
-            }
+            existing.addAll(employeeEntityRepository.findExistingMobiles(batch));
         }
-        return false;
+        return existing;
     }
 
-    private boolean employeeIdExistsInBatches(Collection<String> employeeIds) {
+    private List<String> findExistingEmployeeIdsInBatches(Collection<String> employeeIds) {
+        List<String> existing = new ArrayList<>();
         List<String> idList = new ArrayList<>(employeeIds);
         for (int i = 0; i < idList.size(); i += IMPORT_QUERY_BATCH_SIZE) {
             List<String> batch = idList.subList(i, Math.min(i + IMPORT_QUERY_BATCH_SIZE, idList.size()));
-            if (employeeEntityRepository.checkEmployeeIdExists(batch) != null) {
-                return true;
-            }
+            existing.addAll(employeeEntityRepository.findExistingEmployeeIds(batch));
         }
-        return false;
+        return existing;
     }
 
     @Override
     public RestResult importOrganization(MultipartFile file) {
         LOG.info("Service: importOrganization, fileName: {}, size: {}", file.getOriginalFilename(), file.getSize());
         try {
-            XSSFWorkbook sourceWorkbook = new XSSFWorkbook(file.getInputStream());
+            String jobId = UUID.randomUUID().toString();
+            File tempFile = File.createTempFile("import_", "_" + file.getOriginalFilename());
+            file.transferTo(tempFile);
+
+            long now = System.currentTimeMillis();
+            ImportJobEntity entity = new ImportJobEntity();
+            entity.jobId = jobId;
+            entity.status = ImportJob.STATUS_PENDING;
+            entity.createDt = now;
+            entity.updateDt = now;
+            importJobRepository.save(entity);
+
+            cleanupOldImportJobs();
+
+            ImportJob job = new ImportJob();
+            job.setJobId(jobId);
+            job.setStatus(ImportJob.STATUS_PENDING);
+            job.setCreateTime(now);
+            job.setUpdateTime(now);
+
+            String operatorId = getUserId();
+
+            importExecutor.submit(() -> {
+                AtomicBoolean finished = new AtomicBoolean(false);
+                Thread flushThread = new Thread(() -> {
+                    while (!finished.get()) {
+                        try {
+                            Thread.sleep(1000);
+                            syncJobToDb(job);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+                });
+                flushThread.setName("import-job-flusher-" + jobId);
+                flushThread.setDaemon(true);
+                flushThread.start();
+
+                try {
+                    job.setStatus(ImportJob.STATUS_PROCESSING);
+                    job.setUpdateTime(System.currentTimeMillis());
+                    syncJobToDb(job);
+
+                    RestResult result = importOrganizationInternal(tempFile, job);
+                    if (result.getCode() == SUCCESS.code) {
+                        job.setStatus(ImportJob.STATUS_SUCCESS);
+                    } else {
+                        job.setStatus(ImportJob.STATUS_FAILED);
+                        Object res = result.getResult();
+                        job.setErrorMessage(res != null ? res.toString() : result.getMessage());
+                    }
+                } catch (Exception e) {
+                    LOG.error("Import job {} failed", jobId, e);
+                    job.setStatus(ImportJob.STATUS_FAILED);
+                    job.setErrorMessage(e.getMessage());
+                } finally {
+                    finished.set(true);
+                    try {
+                        flushThread.join(3000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    job.setUpdateTime(System.currentTimeMillis());
+                    syncJobToDb(job);
+
+                    try {
+                        String logDesc = "总人数：" + job.getTotal()
+                            + "，成功：" + job.getSuccessCount()
+                            + "，失败：" + job.getFailCount()
+                            + "，部门数：" + job.getDepartmentCount();
+                        recordOpLog(operatorId, "批量导入完成", logDesc, ImportJob.STATUS_SUCCESS.equals(job.getStatus()));
+                    } catch (Exception e) {
+                        LOG.error("Failed to record import completion log", e);
+                    }
+
+                    if (!tempFile.delete()) {
+                        LOG.warn("Failed to delete temp import file: {}", tempFile.getAbsolutePath());
+                    }
+                }
+            });
+
+            return RestResult.ok(jobId);
+        } catch (Exception e) {
+            LOG.error("Import organization failed", e);
+            return RestResult.error(ERROR_SERVER_ERROR);
+        }
+    }
+
+    private void syncJobToDb(ImportJob job) {
+        try {
+            ImportJobEntity entity = importJobRepository.findById(job.getJobId()).orElse(new ImportJobEntity());
+            entity.jobId = job.getJobId();
+            entity.status = job.getStatus();
+            entity.total = job.getTotal();
+            entity.processed = job.getProcessed();
+            entity.successCount = job.getSuccessCount();
+            entity.failCount = job.getFailCount();
+            entity.departmentCount = job.getDepartmentCount();
+            entity.errorMessage = job.getErrorMessage();
+            entity.failDetails = job.getFailDetails() == null || job.getFailDetails().isEmpty() ? null : new Gson().toJson(job.getFailDetails());
+            entity.createDt = job.getCreateTime();
+            entity.updateDt = job.getUpdateTime();
+            importJobRepository.save(entity);
+        } catch (Exception e) {
+            LOG.error("Failed to sync import job {} to db", job.getJobId(), e);
+        }
+    }
+
+    private void cleanupOldImportJobs() {
+        try {
+            long deadline = System.currentTimeMillis() - 24 * 60 * 60 * 1000;
+            Iterable<ImportJobEntity> allJobs = importJobRepository.findAll();
+            for (ImportJobEntity entity : allJobs) {
+                if ((ImportJob.STATUS_SUCCESS.equals(entity.status) || ImportJob.STATUS_FAILED.equals(entity.status))
+                    && entity.updateDt < deadline) {
+                    importJobRepository.delete(entity);
+                }
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to cleanup old import jobs", e);
+        }
+    }
+
+    private ImportJob convertToImportJob(ImportJobEntity entity) {
+        ImportJob job = new ImportJob();
+        job.setJobId(entity.jobId);
+        job.setStatus(entity.status);
+        job.setTotal(entity.total);
+        job.setProcessed(entity.processed);
+        job.setSuccessCount(entity.successCount);
+        job.setFailCount(entity.failCount);
+        job.setDepartmentCount(entity.departmentCount);
+        job.setErrorMessage(entity.errorMessage);
+        if (!StringUtils.isNullOrEmpty(entity.failDetails)) {
+            try {
+                List<String> details = new Gson().fromJson(entity.failDetails, List.class);
+                job.setFailDetails(details);
+            } catch (Exception e) {
+                LOG.error("Failed to parse import job fail details", e);
+                job.setFailDetails(new ArrayList<>());
+            }
+        } else {
+            job.setFailDetails(new ArrayList<>());
+        }
+        job.setCreateTime(entity.createDt);
+        job.setUpdateTime(entity.updateDt);
+        return job;
+    }
+
+    @Override
+    public RestResult queryImportJob(String jobId) {
+        Optional<ImportJobEntity> optional = importJobRepository.findById(jobId);
+        if (!optional.isPresent()) {
+            return RestResult.error(ERROR_NOT_EXIST);
+        }
+        return RestResult.ok(convertToImportJob(optional.get()));
+    }
+
+    private RestResult importOrganizationInternal(File tempFile, ImportJob job) {
+        LOG.info("Service: importOrganizationInternal, file: {}", tempFile.getAbsolutePath());
+        try (FileInputStream fis = new FileInputStream(tempFile)) {
+            XSSFWorkbook sourceWorkbook = new XSSFWorkbook(fis);
             Iterator<Row> it = sourceWorkbook.getSheetAt(0).rowIterator();
             int currentRow = 0;
 
@@ -1716,12 +1927,20 @@ public class ServiceImpl implements Service {
 
             // 非首次导入时，批量检查数据库中是否已存在该员工
             if (!firstImport) {
-                if (!allMobiles.isEmpty() && mobileExistsInBatches(allMobiles)) {
-                    return RestResult.result(ERROR_SERVER_ERROR, "导入的电话号码中已存在");
+                if (!allMobiles.isEmpty()) {
+                    List<String> existingMobiles = findExistingMobilesInBatches(allMobiles);
+                    if (!existingMobiles.isEmpty()) {
+                        String mobiles = String.join(", ", existingMobiles);
+                        return RestResult.result(ERROR_SERVER_ERROR, "以下电话号码已存在：" + mobiles);
+                    }
                 }
 
-                if (!allUserIds.isEmpty() && employeeIdExistsInBatches(allUserIds)) {
-                    return RestResult.result(ERROR_SERVER_ERROR, "导入的用户ID中已存在");
+                if (!allUserIds.isEmpty()) {
+                    List<String> existingUserIds = findExistingEmployeeIdsInBatches(allUserIds);
+                    if (!existingUserIds.isEmpty()) {
+                        String userIds = String.join(", ", existingUserIds);
+                        return RestResult.result(ERROR_SERVER_ERROR, "以下用户ID已存在：" + userIds);
+                    }
                 }
             }
 
@@ -1884,7 +2103,9 @@ public class ServiceImpl implements Service {
                 }
             }
 
-            saveOrganization(trees, employeeMobileMap);
+            int departmentCount = countOrganizationTreeNodes(trees);
+            job.setDepartmentCount(departmentCount);
+            saveOrganization(trees, employeeMobileMap, job);
             LOG.info("Organization imported successfully");
             return RestResult.ok(null);
         } catch (IOException e) {
@@ -1896,7 +2117,26 @@ public class ServiceImpl implements Service {
         }
     }
 
-    private void saveOrganization(List<OrganizationTree> trees, Map<String, EmployeeModel> employeeMobileMap) throws Exception {
+    private int countOrganizationTreeNodes(List<OrganizationTree> trees) {
+        int count = 0;
+        for (OrganizationTree tree : trees) {
+            count += countOrganizationTreeNodes(tree);
+        }
+        return count;
+    }
+
+    private int countOrganizationTreeNodes(OrganizationTree tree) {
+        if (tree == null) {
+            return 0;
+        }
+        int count = 1;
+        for (OrganizationTree node : tree.nodes) {
+            count += countOrganizationTreeNodes(node);
+        }
+        return count;
+    }
+
+    private void saveOrganization(List<OrganizationTree> trees, Map<String, EmployeeModel> employeeMobileMap, ImportJob job) throws Exception {
         //先保存组织
         LOG.info("Save organizations");
         for (OrganizationTree tree : trees) {
@@ -1905,7 +2145,12 @@ public class ServiceImpl implements Service {
 
         //再保存员工
         LOG.info("Save employees");
-        importEmployees(employeeMobileMap);
+        if (job != null) {
+            job.setTotal(job.getDepartmentCount() + employeeMobileMap.size());
+            job.setProcessed(job.getDepartmentCount());
+            job.setUpdateTime(System.currentTimeMillis());
+        }
+        importEmployees(employeeMobileMap, job);
 
         //更新组织的负责人
         LOG.info("Update organization manager");
@@ -1959,11 +2204,12 @@ public class ServiceImpl implements Service {
         }
     }
 
-    private void importEmployees(Map<String, EmployeeModel> employeeMobileMap) throws Exception {
+    private void importEmployees(Map<String, EmployeeModel> employeeMobileMap, ImportJob job) throws Exception {
         int total = employeeMobileMap.size();
         AtomicInteger current = new AtomicInteger(0);
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
+        int departmentOffset = job != null ? job.getDepartmentCount() : 0;
 
         int nThreads = 10;
         ExecutorService executor = Executors.newFixedThreadPool(nThreads);
@@ -1995,10 +2241,24 @@ public class ServiceImpl implements Service {
                     } else {
                         LOG.warn("Import employee failed: {}, result: {}", employeeModel.employee.name, result);
                         failCount.incrementAndGet();
+                        if (job != null) {
+                            String reason = result.getResult() != null ? result.getResult().toString() : result.getMessage();
+                            job.addFailDetail(employeeModel.employee.name + "（" + employeeModel.employee.mobile + "）：" + reason);
+                        }
                     }
                 } catch (Exception e) {
                     LOG.error("Import employee failed: {}", employeeModel.employee.name, e);
                     failCount.incrementAndGet();
+                    if (job != null) {
+                        job.addFailDetail(employeeModel.employee.name + "（" + employeeModel.employee.mobile + "）：" + e.getMessage());
+                    }
+                } finally {
+                    if (job != null) {
+                        int c = current.get();
+                        if (c % 5 == 0 || c == total) {
+                            job.updateProgress(departmentOffset + c, successCount.get(), failCount.get());
+                        }
+                    }
                 }
             });
             futures.add(future);
@@ -2008,6 +2268,9 @@ public class ServiceImpl implements Service {
             future.get();
         }
         executor.shutdown();
+        if (job != null) {
+            job.updateProgress(departmentOffset + total, successCount.get(), failCount.get());
+        }
         LOG.info("Import employees finished, total: {}, success: {}, fail: {}", total, successCount.get(), failCount.get());
     }
 
@@ -2071,12 +2334,18 @@ public class ServiceImpl implements Service {
     }
 
     @Override
-    public void recordOpLog(String operation, String value) {
+    public void recordOpLog(String operation, String value, boolean success) {
+        recordOpLog(getUserId(), operation, value, success);
+    }
+
+    @Override
+    public void recordOpLog(String userId, String operation, String value, boolean success) {
         try {
             OperationLogEntity logEntity = new OperationLogEntity();
-            logEntity.userId = getUserId();
+            logEntity.userId = userId;
             logEntity.operation = operation;
             logEntity.operationDesc = value;
+            logEntity.result = success ? 0 : 1;
             logEntity.timestamp = System.currentTimeMillis();
             operationLogEntityRepository.save(logEntity);
         } catch (Exception e) {
@@ -2091,6 +2360,7 @@ public class ServiceImpl implements Service {
         pojo.userId = entity.userId;
         pojo.timestamp = entity.timestamp;
         pojo.value = entity.operationDesc;
+        pojo.result = entity.result;
         return pojo;
     }
 
@@ -2106,6 +2376,18 @@ public class ServiceImpl implements Service {
         logEntityPage.getContent().forEach(entity -> response.contents.add(convertOperationLog(entity)));
 
         return RestResult.ok(response);
+    }
+
+    @Override
+    public RestResult clearOperationLogs() {
+        try {
+            operationLogEntityRepository.deleteAll();
+            recordOpLog("清空日志", "清空了所有操作日志", true);
+            return RestResult.ok(null);
+        } catch (Exception e) {
+            LOG.error("Clear operation logs failed", e);
+            return RestResult.error(ERROR_SERVER_ERROR);
+        }
     }
 
     private String getStringValue(Cell cell) {

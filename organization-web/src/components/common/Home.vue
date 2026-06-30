@@ -6,6 +6,8 @@
             </div>
             <el-menu router>
                 <el-menu-item index="/organization/departmentanduser">成员与部门</el-menu-item>
+                <el-menu-item index="/organization/departmentanduser/import-member">批量导入</el-menu-item>
+                <el-menu-item index="/organization/logs">操作日志</el-menu-item>
             </el-menu>
         </el-aside>
         <el-container :class="{'content-collapse':collapse}">
@@ -100,10 +102,16 @@ export default {
         rootOrganizations() {
             return this.orgStore.rootOrganizations;
         },
+        rootOrganizationsLoaded() {
+            return this.orgStore.rootOrganizationsLoaded;
+        }
     },
 
     methods: {
         go2home() {
+            if (!this.rootOrganizationsLoaded) {
+                return;
+            }
             const defaultPath = this.rootOrganizations.length > 0 ? '/organization/departmentanduser' : '/organization/departmentanduser/import-member';
             if (this.$router.history.current.path !== defaultPath) {
                 this.$router.replace(defaultPath);
@@ -131,16 +139,18 @@ export default {
         }
     },
     watch: {
-        rootOrganizations: {
-            handler(newVal) {
-                // 当根组织数据变化时，检查是否需要跳转到批量导入页面
-                if (newVal.length === 0 && this.$router.history.current.path !== '/organization/departmentanduser/import-member') {
+        rootOrganizationsLoaded: {
+            handler(loaded) {
+                if (!loaded) {
+                    return;
+                }
+                // 组织数据加载完成后，根据是否有根组织决定跳转
+                if (this.rootOrganizations.length === 0 && this.$router.history.current.path !== '/organization/departmentanduser/import-member') {
                     this.$router.push('/organization/departmentanduser/import-member')
-                } else if (newVal.length > 0 && this.$router.history.current.path !== '/organization/departmentanduser') {
+                } else if (this.rootOrganizations.length > 0 && this.$router.history.current.path !== '/organization/departmentanduser') {
                     this.$router.push('/organization/departmentanduser')
                 }
             },
-            deep: true,
             immediate: true
         }
     }

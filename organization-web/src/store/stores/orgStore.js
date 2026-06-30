@@ -5,7 +5,8 @@ import Organization from "@/model/organization";
 
 export const useOrgStore = defineStore('org', {
   state: () => ({
-    rootOrganizations: []
+    rootOrganizations: [],
+    rootOrganizationsLoaded: false
   }),
 
   actions: {
@@ -41,6 +42,7 @@ export const useOrgStore = defineStore('org', {
         org.buildRenderData(orgWC);
         console.log('query root organizationWithChildren', this.rootOrganizations);
       }
+      this.rootOrganizationsLoaded = true;
     },
 
     async queryOrganizationWithChildren(org) {

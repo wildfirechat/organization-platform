@@ -8,5 +8,6 @@ public class OperationLogPojo {
     public String userId;
     public String operation;
     public String value;
+    public int result;
     public long timestamp;
 }

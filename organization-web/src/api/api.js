@@ -71,5 +71,17 @@ export default {
 
     uploadTemplateUrl() {
         return instance.defaults.baseURL + '/import';
+    },
+
+    async queryImportJob(jobId) {
+        return axios.get('/import/' + jobId);
+    },
+
+    async getLogs(page = 0, count = 20) {
+        return axios.post('/logs?page=' + page + '&count=' + count);
+    },
+
+    async clearLogs() {
+        return axios.post('/logs/clear');
     }
 }

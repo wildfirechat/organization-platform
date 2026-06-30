@@ -13,11 +13,11 @@ public interface EmployeeEntityRepository extends CrudRepository<EmployeeEntity,
     Optional<EmployeeEntity> findByEmployeeId(String employeeId);
     Optional<EmployeeEntity> findByMobile(String mobile);
 
-    @Query(value = "select 1 from t_employee where mobile in ?1 limit 1", nativeQuery = true)
-    Integer checkMobileExists(Collection<String> mobiles);
+    @Query(value = "select distinct mobile from t_employee where mobile in ?1", nativeQuery = true)
+    List<String> findExistingMobiles(Collection<String> mobiles);
 
-    @Query(value = "select 1 from t_employee where employee_id in ?1 limit 1", nativeQuery = true)
-    Integer checkEmployeeIdExists(Collection<String> employeeIds);
+    @Query(value = "select distinct employee_id from t_employee where employee_id in ?1", nativeQuery = true)
+    List<String> findExistingEmployeeIds(Collection<String> employeeIds);
 
 
     @Query(value = "select * from t_employee where employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?1 and bottom = true) order by sort", nativeQuery = true)
