@@ -30,7 +30,9 @@
                             <el-dropdown-item
                                 :command="{ c: 'set-manager', node: node, depart: node.data }">{{ node.data.managerId ? '修改组织领导' : '设置组织领导' }}</el-dropdown-item>
                             <el-dropdown-item
-                                :command="{ c: 'edit', node: node, depart: node.data }">编辑部门</el-dropdown-item>
+                                :command="{ c: 'edit', node: node, depart: node.data }">修改部门名称</el-dropdown-item>
+                            <el-dropdown-item
+                                :command="{ c: 'move-department', node: node, depart: node.data }">移动部门</el-dropdown-item>
                             <el-dropdown-item
                                 :command="{ c: 'add-sub', node: node, depart: node.data }">添加子部门</el-dropdown-item>
                             <el-dropdown-item v-if="canMoveUp(node)"
@@ -138,6 +140,14 @@
             <UpdateDepartment v-if="showUpdateDepartmentDialog" :current-department="targetDepartment" :on-update-department="onUpdateDepartment"/>
         </el-dialog>
 
+        <el-dialog :visible.sync="showMoveDepartmentDialog"
+                   :before-close="() => this.showMoveDepartmentDialog = false">
+            <MoveDepartment v-if="showMoveDepartmentDialog"
+                            :current-department="targetDepartment"
+                            :on-cancel="() => this.showMoveDepartmentDialog = false"
+                            :on-confirm="onMoveDepartmentConfirm"/>
+        </el-dialog>
+
         <el-dialog :visible.sync="showAddSubDepartmentDialog"
                    :before-close="() => this.showAddSubDepartmentDialog = false">
             <AddSubDepartment
@@ -209,6 +219,7 @@ import UpdateDepartment from "@/components/page/organization/dialog/UpdateDepart
 import TransferMember from "@/components/page/organization/TransferMember.vue";
 import UpdateEmployeePwd from "@/components/page/organization/UpdateEmployeePwd.vue";
 import UpdateEmployee from "@/components/page/organization/dialog/UpdateEmployee.vue";
+import MoveDepartment from "@/components/page/organization/dialog/MoveDepartment.vue";
 import OrganizationWithChildren from "@/model/organizationWithChildren";
 import api from "@/api/api";
 
@@ -216,6 +227,7 @@ export default {
     name: "Member",
     components: {
         UpdateDepartment,
+        MoveDepartment,
         DeleteEmployee,
         AddDepartmentMember,
         AddSubDepartment,
@@ -239,6 +251,7 @@ export default {
 
             showDeleteEmployeeDrawer: false,
             showUpdateDepartmentDialog: false,
+            showMoveDepartmentDialog: false,
             showAddSubDepartmentDialog: false,
             showAddDepartmentMemberDialog: false,
 
@@ -398,6 +411,11 @@ export default {
                     this.targetDepartment = command.depart;
                     this.targetNode = command.node;
                     break;
+                case "move-department":
+                    this.showMoveDepartmentDialog = true;
+                    this.targetDepartment = command.depart;
+                    this.targetNode = command.node;
+                    break;
                 case "remove":
                     this.orgStore.removeOrganization({organization: command.depart, dismissGroup: true})
                         .then(() => {
@@ -494,6 +512,26 @@ export default {
                 this.updateTreeNode(this.targetNode);
             }
             this.showUpdateDepartmentDialog = false;
+        },
+        async onMoveDepartmentConfirm(newParent) {
+            if (!newParent || !this.targetDepartment) {
+                return;
+            }
+            try {
+                await api.moveOrganization(this.targetDepartment.id, newParent.id);
+                this.$message.success('移动成功');
+                this.showMoveDepartmentDialog = false;
+                let parentNode = this.targetNode ? this.targetNode.parent : null;
+                if (parentNode) {
+                    this.updateTreeNode(parentNode);
+                }
+                this.orgStore.getRootOrganizationsWithChildren();
+                this.targetDepartment = null;
+                this.targetNode = null;
+            } catch (e) {
+                console.error('移动部门失败', e);
+                this.$message.error('移动部门失败');
+            }
         },
         onAddDepartment(success) {
             if (success) {

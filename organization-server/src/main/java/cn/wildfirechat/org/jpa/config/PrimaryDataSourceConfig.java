@@ -45,6 +45,7 @@ public class PrimaryDataSourceConfig {
             @Qualifier("primaryDataSource") DataSource primaryDataSource) {
         Map<String, Object> properties = new HashMap<>();
         properties.put("hibernate.hbm2ddl.auto", ddlAuto);
+        properties.put("hibernate.dialect.storage_engine", "innodb");
         return builder
             .dataSource(primaryDataSource)
             .packages("cn.wildfirechat.org.jpa")

@@ -40,6 +40,9 @@ export default {
     async setOrganizationManager(id, managerId) {
         return axios.post('/organization/set_manager', {id, managerId});
     },
+    async moveOrganization(organizationId, newParentId) {
+        return axios.post('/organization/move', {organizationId, newParentId});
+    },
     async deleteOrganization(organization) {
         return axios.post('/organization/delete', {id: organization.id})
     },

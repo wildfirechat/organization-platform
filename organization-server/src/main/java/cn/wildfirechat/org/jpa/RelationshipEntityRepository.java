@@ -20,4 +20,7 @@ public interface RelationshipEntityRepository extends CrudRepository<Relationshi
 
     @Query(value = "select distinct employee_id from t_relationship where organization_id in (?1) ", nativeQuery = true)
     List<String> getOrganizationBatchMembers(List<Integer> organizationIds);
+
+    @Query(value = "select * from t_relationship where organization_id in (?1)", nativeQuery = true)
+    List<RelationshipEntity> getOrganizationRelationshipsByOrgIds(List<Integer> orgIds);
 }

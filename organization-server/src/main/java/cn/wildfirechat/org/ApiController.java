@@ -142,7 +142,6 @@ public class ApiController {
      * @return
      * @throws Exception
      */
-    @Transactional
     @PostMapping(value = "organization/move", produces = "application/json;charset=UTF-8")
     public Object moveOrganization(@RequestBody MoveOrganizationPojo moveOrganizationPojo) throws Exception {
         LOG.info("Request: moveOrganization, organizationId: {}, newParentId: {}", moveOrganizationPojo.organizationId, moveOrganizationPojo.newParentId);

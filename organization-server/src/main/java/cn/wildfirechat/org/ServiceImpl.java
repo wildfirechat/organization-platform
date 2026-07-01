@@ -52,6 +52,7 @@ import org.apache.shiro.subject.Subject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -660,6 +661,7 @@ public class ServiceImpl implements Service {
     }
 
     @Override
+    @Transactional
     public RestResult moveOrganization(int id, int newParentId) throws Exception {
         LOG.info("Service: moveOrganization, id: {}, newParentId: {}", id, newParentId);
         Optional<OrganizationEntity> optional = organizationEntityRepository.findById(id);
@@ -687,10 +689,15 @@ public class ServiceImpl implements Service {
         List<OrganizationEntity> previousAncestors = getAncestorOrganization(id);
         //获取移动前的深度
         int oldDepth = getOrganizationDepth(id);
-        //获取移动前组织下的所有关系
+        //获取移动前组织下的所有关系（包含被移动组织自身的）
         List<RelationshipEntity> relationshipEntities = relationshipEntityRepository.getOrganizationRelationshipsBelowDepth(id, oldDepth);
-        //删除移动前组织下的所有关系
-        relationshipEntityRepository.deleteAll(relationshipEntities);
+
+        // 获取所有下级子组织，一并更新它们的 depth
+        List<Integer> descendantOrgIds = getAllDescendantOrgIds(id);
+        if (!descendantOrgIds.isEmpty()) {
+            List<RelationshipEntity> descendantRelationships = relationshipEntityRepository.getOrganizationRelationshipsByOrgIds(descendantOrgIds);
+            relationshipEntities.addAll(descendantRelationships);
+        }
 
         //获取组织下的所有员工
         Set<String> employees = new HashSet<>();
@@ -705,18 +712,25 @@ public class ServiceImpl implements Service {
         List<OrganizationEntity> afterAncestors = getAncestorOrganization(id);
         //获取移动后的深度
         int newDepth = getOrganizationDepth(id);
-        //当前组织的所有关系加上变更
-        relationshipEntities.forEach(entity1 -> {
-            entity1.depth += (newDepth - oldDepth);
-            entity1.updateDt = System.currentTimeMillis();
-            if (afterAncestors.isEmpty()) {
-                entity1.parentOrganizationId = 0;
-            } else {
-                entity1.parentOrganizationId = afterAncestors.get(afterAncestors.size() - 1).id;
-            }
-        });
-        //保存当前组织的变更
-        relationshipEntityRepository.saveAll(relationshipEntities);
+
+        //删除旧的关系，然后重新创建
+        relationshipEntityRepository.deleteAll(relationshipEntities);
+
+        List<RelationshipEntity> newRelationships = new ArrayList<>();
+        int movedOrgParentId = afterAncestors.isEmpty() ? 0 : afterAncestors.get(afterAncestors.size() - 1).id;
+        int depthDiff = newDepth - oldDepth;
+        for (RelationshipEntity old : relationshipEntities) {
+            RelationshipEntity ne = new RelationshipEntity();
+            ne.employeeId = old.employeeId;
+            ne.organizationId = old.organizationId;
+            ne.depth = old.depth + depthDiff;
+            ne.bottom = old.bottom;
+            ne.parentOrganizationId = old.organizationId == id ? movedOrgParentId : old.parentOrganizationId;
+            ne.createDt = System.currentTimeMillis();
+            ne.updateDt = ne.createDt;
+            newRelationships.add(ne);
+        }
+        relationshipEntityRepository.saveAll(newRelationships);
 
         //获取移动前和移动后的共同节点。
         List<Integer> commonIds = new ArrayList<>();
@@ -729,51 +743,50 @@ public class ServiceImpl implements Service {
             }
         });
 
-        List<RelationshipID> changedRelationshipIds = new ArrayList<>();
-        employees.forEach(s -> {
-            RelationshipID relationshipEntity = new RelationshipID();
-            relationshipEntity.employeeId = s;
-            changedRelationshipIds.add(relationshipEntity);
-        });
         //退出的组织，需要退出群组和删掉关系
         for (int i = 0; i < previousAncestors.size(); i++) {
             OrganizationEntity organizationEntity = previousAncestors.get(i);
             if (!commonIds.contains(organizationEntity.id)) {
                 int depth = i;
                 quitGroup(organizationEntity.groupId, employees);
-                changedRelationshipIds.forEach(entity13 -> {
-                    entity13.organizationId = organizationEntity.id;
-                    entity13.depth = depth;
+                List<RelationshipID> toDelete = new ArrayList<>();
+                employees.forEach(s -> {
+                    RelationshipID rid = new RelationshipID();
+                    rid.employeeId = s;
+                    rid.organizationId = organizationEntity.id;
+                    rid.depth = depth;
+                    toDelete.add(rid);
                 });
-                relationshipEntityRepository.deleteAllById(changedRelationshipIds);
+                relationshipEntityRepository.deleteAllById(toDelete);
                 updateOrganizationMemberCount(organizationEntity.id);
             }
         }
 
-        List<RelationshipEntity> changedRelationshipEntitys = new ArrayList<>();
-        employees.forEach(s -> {
-            RelationshipEntity relationshipEntity = new RelationshipEntity();
-            relationshipEntity.employeeId = s;
-            changedRelationshipEntitys.add(relationshipEntity);
-        });
         //加入的新组织，需要加入群和加入关系
-        int parentOrgId = 0;
+        final int[] parentOrgIdHolder = {0};
+        List<RelationshipEntity> allNewRelationships = new ArrayList<>();
         for (int i = 0; i < afterAncestors.size(); i++) {
             OrganizationEntity organizationEntity = afterAncestors.get(i);
             if (!commonIds.contains(organizationEntity.id)) {
                 int depth = i;
+                int parentOrgId = parentOrgIdHolder[0];
                 addGroup(organizationEntity.groupId, organizationEntity.managerId, employees);
-                for (RelationshipEntity entity13 : changedRelationshipEntitys) {
+                employees.forEach(s -> {
+                    RelationshipEntity entity13 = new RelationshipEntity();
+                    entity13.employeeId = s;
                     entity13.organizationId = organizationEntity.id;
                     entity13.depth = depth;
                     entity13.parentOrganizationId = parentOrgId;
                     entity13.createDt = System.currentTimeMillis();
                     entity13.updateDt = entity13.createDt;
-                }
-                relationshipEntityRepository.saveAll(changedRelationshipEntitys);
+                    allNewRelationships.add(entity13);
+                });
                 updateOrganizationMemberCount(organizationEntity.id);
             }
-            parentOrgId = organizationEntity.id;
+            parentOrgIdHolder[0] = organizationEntity.id;
+        }
+        if (!allNewRelationships.isEmpty()) {
+            relationshipEntityRepository.saveAll(allNewRelationships);
         }
 
         LOG.info("Organization moved successfully, id: {}, newParentId: {}", id, newParentId);
@@ -2435,6 +2448,16 @@ public class ServiceImpl implements Service {
         }
 
         return depth;
+    }
+
+    private List<Integer> getAllDescendantOrgIds(int orgId) {
+        List<Integer> result = new ArrayList<>();
+        List<OrganizationEntity> children = organizationEntityRepository.findAllByParentId(orgId);
+        for (OrganizationEntity child : children) {
+            result.add(child.id);
+            result.addAll(getAllDescendantOrgIds(child.id));
+        }
+        return result;
     }
 
     private void updateOrganizationMemberCount(int organizationId) {
