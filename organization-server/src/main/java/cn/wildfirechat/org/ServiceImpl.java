@@ -2167,24 +2167,47 @@ public class ServiceImpl implements Service {
 
     private void importOrganization(OrganizationTree tree) throws Exception {
         OrganizationEntity entity = tree.entity;
-        entity.id = 0;
         entity.createDt = System.currentTimeMillis();
         entity.updateDt = entity.createDt;
+
+        int parentId = 0;
         if (tree.parent != null) {
             if (tree.parent.entity.id > 0) {
-                entity.parentId = tree.parent.entity.id;
+                parentId = tree.parent.entity.id;
             } else {
                 LOG.error("should not be here!");
             }
         }
-        LOG.info("Save organization {}", entity.name);
-        if(!organizationEntityRepository.existsById(entity.id)) {
+        entity.parentId = parentId;
+
+        //根据父节点id判断同名节点是否已存在，存在则复用已有节点，避免重复创建
+        OrganizationEntity existing = findExistingOrganization(parentId, entity.name);
+        if (existing != null) {
+            entity.id = existing.id;
+            LOG.info("Organization {} already exists under parent {}, reuse id {}", entity.name, parentId, existing.id);
+        } else {
+            entity.id = 0;
+            LOG.info("Save organization {}", entity.name);
             organizationEntityRepository.save(entity);
         }
 
         for (OrganizationTree node : tree.nodes) {
             importOrganization(node);
         }
+    }
+
+    //在指定父节点下查找同名的已有组织节点
+    private OrganizationEntity findExistingOrganization(int parentId, String name) {
+        if (StringUtils.isNullOrEmpty(name)) {
+            return null;
+        }
+        List<OrganizationEntity> siblings = organizationEntityRepository.findAllByParentId(parentId);
+        for (OrganizationEntity sibling : siblings) {
+            if (name.equals(sibling.name)) {
+                return sibling;
+            }
+        }
+        return null;
     }
 
     private void importOrganizationManager(OrganizationTree tree) throws Exception {
