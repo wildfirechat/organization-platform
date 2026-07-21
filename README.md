@@ -61,6 +61,56 @@ mvn clean package
 nohup java -jar organization-platform-server-*.jar 2>&1 &
 ```
 
+### Nginx 反向代理与 IP 白名单
+默认打包部署时，organization-server API 和 organization-web 管理后台都跑在同一个端口（`8880`）上。如果希望对管理后台做 IP 白名单控制，推荐在前面加一层 Nginx 反向代理，通过 `allow/deny` 限制访问来源。
+
+#### 1. 绑定后端到本地（可选但推荐）
+在 `organization-server/config/application.properties` 中把服务绑定到 `127.0.0.1`，避免外网直接访问 8880 端口：
+
+```properties
+server.address=127.0.0.1
+```
+
+#### 2. Nginx 配置示例
+以下配置仅允许 `10.0.0.0/24` 和 `192.168.1.100` 访问管理后台（`/`），客户端查询用的 `/api/` 接口保持公开可访问：
+
+```nginx
+server {
+    listen 80;
+    server_name org.example.com;
+
+    # 管理后台：仅允许指定 IP
+    location / {
+        allow 10.0.0.0/24;
+        allow 192.168.1.100;
+        deny all;
+
+        proxy_pass http://127.0.0.1:8880;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # API 接口：给客户端和管理后台共用，根据业务需要决定是否加白名单
+    location /api/ {
+        proxy_pass http://127.0.0.1:8880/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+#### 3. 验证配置
+修改 Nginx 配置后重载：
+
+```bash
+nginx -t
+nginx -s reload
+```
+
+注意：如果 Nginx 和 organization-server 之间还有 SLB、CDN 等代理，`$remote_addr` 会是代理的地址，此时应改用 `$http_x_forwarded_for` 做限制，或在最外层代理上设置真实 IP 模块。
+
 ## 登录
 浏览器打开```http://{IP}:8880```进入到管理后台界面，默认账户/密码为 ```admin/admin123```  登陆以后注意修改默认密码。
 
