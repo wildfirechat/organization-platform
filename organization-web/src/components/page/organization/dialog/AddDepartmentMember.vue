@@ -39,7 +39,8 @@
                     <el-upload
                         slot="append"
                         class="avatar-uploader"
-                        action="https://jsonplaceholder.typicode.com/posts/"
+                        :action="uploadMediaUrl"
+                        :with-credentials="true"
                         :show-file-list="false"
                         :on-success="handleAvatarSuccess"
                         :before-upload="beforeAvatarUpload">
@@ -47,6 +48,7 @@
                         <i v-else class="el-icon-plus avatar-uploader-icon"></i>
                     </el-upload>
                 </el-input>
+                <div class="el-upload__tip">需要先配置 oss，只能上传jpg/png文件，且不超过2MB</div>
             </el-form-item>
             <el-form-item label="密码">
                 <el-input v-model="employee.password" type="password" placeholder="请输入密码" show-password></el-input>
@@ -89,7 +91,8 @@ export default {
         return {
             employee: {},
             checkedDepartments: [],
-            showChooseDepartmentDialog: false
+            showChooseDepartmentDialog: false,
+            uploadMediaUrl: '/api/media/upload/'
         }
     },
     computed: {
@@ -101,19 +104,25 @@ export default {
     },
     methods: {
         handleAvatarSuccess(res, file) {
-            this.employee.portraitUrl = URL.createObjectURL(file.raw);
+            if (res.code === 0) {
+                this.employee.portraitUrl = res.result.url;
+            } else {
+                this.$message.error('头像上传失败 ' + res);
+            }
+            console.log('res, file', res, file)
         },
         beforeAvatarUpload(file) {
             const isJPG = file.type === 'image/jpeg';
+            const isPNG = file.type === 'image/png';
             const isLt2M = file.size / 1024 / 1024 < 2;
 
-            if (!isJPG) {
-                this.$message.error('上传头像图片只能是 JPG 格式!');
+            if (!isJPG && !isPNG) {
+                this.$message.error('上传头像图片只能是 JPG/PNG 格式!');
             }
             if (!isLt2M) {
                 this.$message.error('上传头像图片大小不能超过 2MB!');
             }
-            return isJPG && isLt2M;
+            return (isJPG || isPNG) && isLt2M;
         },
         handleCloseTag(tag) {
             this.checkedDepartments = this.checkedDepartments.filter(d => d.id !== tag.id);

@@ -38,7 +38,7 @@ import com.qiniu.storage.model.DefaultPutRet;
 import com.qiniu.util.Auth;
 import com.qiniu.util.StringUtils;
 import io.minio.MinioClient;
-import io.minio.PutObjectOptions;
+import io.minio.PutObjectArgs;
 import io.minio.errors.MinioException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -64,6 +64,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -313,27 +314,38 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult uploadMedia(MultipartFile file) throws Exception {
-        String fileName = file.getOriginalFilename();
-        String suffix = "";
-        String prefix = fileName;
-        if (fileName.contains(".")) {
-            suffix = fileName.substring(fileName.lastIndexOf("."));
-            prefix = fileName.substring(0, fileName.lastIndexOf("."));
+        if(ossType == -1){
+            return RestResult.error(ERROR_CODE_NOT_CONFIG_OSS);
         }
+        String originalFilename = file.getOriginalFilename();
+        String suffix = "";
+        String prefix = UUID.randomUUID().toString();
+        if (originalFilename != null && originalFilename.contains(".")) {
+            suffix = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+        String fileName = prefix + suffix;
         File localFile = File.createTempFile(prefix, suffix);
 
         try {
             file.transferTo(localFile);
         } catch (IOException e) {
             e.printStackTrace();
+            localFile.delete();
             return RestResult.error(ERROR_SERVER_ERROR);
+        }
+
+        //限制只能上传图片
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            localFile.delete();
+            return RestResult.result(ERROR_INVALID_PARAMETER, "只能上传图片文件");
         }
 
         String bucket = ossBucket;
         String bucketDomain = ossBucketDomain;
 
 
-        String url = bucketDomain + "/" + fileName;
+        String url = buildMediaUrl(bucketDomain, fileName);
         if (ossType == 1) {
             //构造一个带指定 Region 对象的配置类
             Configuration cfg = new Configuration(Region.region0());
@@ -380,14 +392,14 @@ public class ServiceImpl implements Service {
             // 关闭OSSClient。
             ossClient.shutdown();
         } else if (ossType == 3) {
-            try {
-                // 使用MinIO服务的URL，端口，Access key和Secret key创建一个MinioClient对象
-//                MinioClient minioClient = new MinioClient("https://play.min.io", "Q3AM3UQ867SPQQA43P2F", "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG");
-                MinioClient minioClient = new MinioClient(ossUrl, ossAccessKey, ossSecretKey);
-
-                // 使用putObject上传一个文件到存储桶中。
-//                minioClient.putObject("asiatrip",fileName, localFile.getAbsolutePath(), new PutObjectOptions(PutObjectOptions.MAX_OBJECT_SIZE, PutObjectOptions.MIN_MULTIPART_SIZE));
-                minioClient.putObject(bucket, fileName, localFile.getAbsolutePath(), new PutObjectOptions(file.getSize(), 0));
+            try (InputStream inputStream = new FileInputStream(localFile);
+                 MinioClient minioClient = new MinioClient.Builder().endpoint(ossUrl).credentials(ossAccessKey, ossSecretKey).build();
+            ) {
+                minioClient.putObject(new PutObjectArgs.Builder()
+                    .bucket(bucket)
+                    .object(fileName)
+                    .stream(inputStream, file.getSize(), 0)
+                    .build());
             } catch (MinioException e) {
                 System.out.println("Error occurred: " + e);
                 return RestResult.error(ERROR_SERVER_ERROR);
@@ -399,7 +411,8 @@ public class ServiceImpl implements Service {
                 return RestResult.error(ERROR_SERVER_ERROR);
             }
         } else if (ossType == 4) {
-            //Todo 需要把文件上传到文件服务器。
+            localFile.delete();
+            return RestResult.error(ERROR_SERVER_NOT_IMPLEMENT);
         } else if (ossType == 5) {
             COSCredentials cred = new BasicCOSCredentials(ossAccessKey, ossSecretKey);
             ClientConfig clientConfig = new ClientConfig();
@@ -430,12 +443,26 @@ public class ServiceImpl implements Service {
             } finally {
                 cosClient.shutdown();
             }
+        } else {
+            localFile.delete();
+            return RestResult.error(ERROR_CODE_NOT_CONFIG_OSS);
         }
 
         UploadFileResponse response = new UploadFileResponse();
         response.setUrl(url);
         localFile.delete();
         return RestResult.ok(response);
+    }
+
+    //拼接 bucketDomain 和文件名，避免重复斜杠
+    private String buildMediaUrl(String bucketDomain, String fileName) {
+        if (bucketDomain == null) {
+            bucketDomain = "";
+        }
+        if (bucketDomain.endsWith("/")) {
+            return bucketDomain + fileName;
+        }
+        return bucketDomain + "/" + fileName;
     }
 
     private OrganizationEntity convertOrganization(OrganizationPojo organizationPojo) {

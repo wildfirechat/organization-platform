@@ -34,7 +34,8 @@ public class RestResult {
         ERROR_UPDATE_ORG_ADD_GROUP(30, "不能修改组织的群组，应该调用创建群组或者解散群组"),
         ERROR_ORG_CREATE_GROUP_NEED_MANAGER(31, "组织创建群组需要组织有管理者"),
         ERROR_IM_SERVER_ERROR(32, "IM服务错误"),
-        ERROR_CANNOT_DELETE_ORGANIZATION_MANAGER(33, " 不能删除组织负责人，应先将组织负责人更新为其他人");
+        ERROR_CANNOT_DELETE_ORGANIZATION_MANAGER(33, " 不能删除组织负责人，应先将组织负责人更新为其他人"),
+        ERROR_CODE_NOT_CONFIG_OSS(34, "未配置 OSS");
         public int code;
         public String msg;
 

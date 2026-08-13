@@ -53,7 +53,23 @@ mvn clean package
 2. 应用使用的数据库，默认是H2，可以直接运行，建议切换到mysql。
 3. IM服务的Server API地址和密钥，必须修改为有效信息。
 4. 否允许外部人员访问组织，如果是则非公司员工也可以看到组织通讯录，否则看不到。
-5. 对象存储信息，配置之后可以在创建员工时设置头像等。
+5. 对象存储信息，配置之后可以在创建员工时设置头像等。默认 ```media.server.media_type=-1``` 表示未配置 OSS，此时上传头像会提示“未配置 OSS”。如需使用，请按如下说明修改：
+
+    * ```media.server.media_type```：存储类型，-1 未配置（默认），1 七牛云，2 阿里云 OSS，3 野火私有对象存储（MinIO），4 野火对象存储网关（暂未实现），5 腾讯云 COS。
+    * ```media.server_url```：OSS 服务端点地址。
+    * ```media.access_key``` 和 ```media.secret_key```：OSS 访问密钥。
+    * ```media.bucket_name```：存储桶名称。
+    * ```media.bucket_domain```：存储桶访问域名，上传成功后会返回 ```{bucket_domain}/{随机文件名}``` 的访问地址。
+
+    配置示例（七牛云）：
+    ```properties
+    media.server.media_type=1
+    media.server_url=https://up.qbox.me
+    media.access_key=你的AccessKey
+    media.secret_key=你的SecretKey
+    media.bucket_name=你的Bucket
+    media.bucket_domain=http://你的Bucket域名
+    ```
 
 ### 部署
 把软件包```organization-platform-server-XXX.jar```放到云服务器上，确保配置目录在一起并正确配置后，执行命令：
