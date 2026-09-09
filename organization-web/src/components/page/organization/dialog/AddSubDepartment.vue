@@ -4,7 +4,6 @@
         <el-form
             label-position="right"
             :model="organization"
-            size="medium"
             class="demo-form-inline">
             <el-form-item label="部门名称">
                 <el-input v-model.trim="organization.name" placeholder="部门名称"></el-input>
@@ -15,17 +14,21 @@
             </el-form-item>
             <el-form-item label="部门负责人">
                 <el-input disabled>
-                    <div v-if="managers.length > 0" slot="prepend">
-                        <el-tag
-                            v-for="(member, index) in managers"
-                            :key="index"
-                            closable
-                            @close="handleCloseTag(member)"
-                            type="info">
-                            {{ member.name }}
-                        </el-tag>
-                    </div>
-                    <el-button slot="append" type="text" icon="el-icon-edit" @click="showChooseMemberDialog = true"></el-button>
+                    <template #prepend v-if="managers.length > 0">
+                        <div>
+                            <el-tag
+                                v-for="(member, index) in managers"
+                                :key="index"
+                                closable
+                                @close="handleCloseTag(member)"
+                                type="info">
+                                {{ member.name }}
+                            </el-tag>
+                        </div>
+                    </template>
+                    <template #append>
+                        <el-button link type="primary" icon="Edit" @click="showChooseMemberDialog = true"></el-button>
+                    </template>
                 </el-input>
             </el-form-item>
         </el-form>
@@ -35,11 +38,11 @@
         </div>
 
         <!-- 集成 ChooseMember 对话框 -->
-        <el-dialog :visible.sync="showChooseMemberDialog" append-to-body title="选择成员">
+        <el-dialog v-model="showChooseMemberDialog" append-to-body title="选择成员">
             <ChooseMember
                 :initial-checked-members="initialCheckedMembers"
                 :max-choose-count="1"
-                :on-cancel="() => this.showChooseMemberDialog = false"
+                :on-cancel="() => showChooseMemberDialog = false"
                 :on-confirm="onCheckMember"/>
         </el-dialog>
     </div>
@@ -47,7 +50,7 @@
 
 <script>
 import { useOrgStore } from "@/store/stores/orgStore";
-import ChooseMember from "@/components/page/organization/dialog/ChooseMember";
+import ChooseMember from "@/components/page/organization/dialog/ChooseMember.vue";
 
 export default {
     name: "AddSubDepartment",

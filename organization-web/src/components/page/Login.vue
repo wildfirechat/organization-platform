@@ -1,8 +1,8 @@
 <template>
-    <div class='bgg' :style="{'backgroundImage':'url(' +require('../../assets/images/pic.webp') + ')'}">
+    <div class='bgg' :style="{'backgroundImage':'url(' + bgImage + ')'}">
         <div class="ms-title">野火IM组织架构管理后台</div>
         <div class="ms-login">
-            <el-form @submit.native.prevent :model="loginForm" :rules="rules" ref="loginForm" :inline="false"
+            <el-form @submit.prevent :model="loginForm" :rules="rules" ref="loginForm" :inline="false"
                      class="loginForm">
                 <el-form-item prop="username" label="用户名">
                     <input v-model.trim="loginForm.username" class="input_style user_bg"/>
@@ -25,10 +25,12 @@
 <script>
 import LoginRequest from "@/model/loginRequest";
 import { useUserStore } from "@/store/stores/userStore";
+import bgImage from "@/assets/images/pic.webp";
 
 export default {
     data: function () {
         return {
+            bgImage,
             loading: false,
             loginForm: {
                 username: '',

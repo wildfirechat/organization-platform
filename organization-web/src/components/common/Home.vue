@@ -15,24 +15,30 @@
                 <Breadcrumb/>
                 <span style="flex: 1"> </span>
                 <el-dropdown>
-                    <i class="el-icon-setting" style="margin-right: 15px"></i>
-                    <el-dropdown-menu slot="dropdown">
-                        <el-dropdown-item @click.native="logout">退出</el-dropdown-item>
-                        <el-dropdown-item @click.native="modifyPwdDialogVisible = true">修改密码</el-dropdown-item>
-                    </el-dropdown-menu>
+                    <el-icon style="margin-right: 15px">
+                        <Setting/>
+                    </el-icon>
+                    <template #dropdown>
+                        <el-dropdown-menu>
+                            <el-dropdown-item @click="logout">退出</el-dropdown-item>
+                            <el-dropdown-item @click="modifyPwdDialogVisible = true">修改密码</el-dropdown-item>
+                        </el-dropdown-menu>
+                    </template>
                 </el-dropdown>
                 <span>{{ account.displayName }}</span>
             </el-header>
             <el-main style="padding: 0">
-                <transition name="move" mode="out-in">
-                    <keep-alive>
-                        <router-view></router-view>
-                    </keep-alive>
-                </transition>
+                <router-view v-slot="{ Component }">
+                    <transition name="move" mode="out-in">
+                        <keep-alive>
+                            <component :is="Component"/>
+                        </keep-alive>
+                    </transition>
+                </router-view>
             </el-main>
 
 
-            <el-dialog title="修改密码" :visible.sync="modifyPwdDialogVisible">
+            <el-dialog title="修改密码" v-model="modifyPwdDialogVisible">
                 <el-form :model="updatePwdRequest" ref="updatePwdForm" :rules="rules">
                     <el-form-item label="旧密码" :label-width="formLabelWidth" prop="oldPwd">
                         <el-input v-model="updatePwdRequest.oldPwd" autocomplete="off" placeholder="请输入旧密码"></el-input>
@@ -44,10 +50,12 @@
                         <el-input v-model="updatePwdRequest.confirmNewPwd" autocomplete="off" placeholder="请确认新密码"></el-input>
                     </el-form-item>
                 </el-form>
-                <div slot="footer" class="dialog-footer">
-                    <el-button @click="modifyPwdDialogVisible = false">取 消</el-button>
-                    <el-button type="primary" @click="updatePwd('updatePwdForm')">修 改</el-button>
-                </div>
+                <template #footer>
+                    <div class="dialog-footer">
+                        <el-button @click="modifyPwdDialogVisible = false">取 消</el-button>
+                        <el-button type="primary" @click="updatePwd('updatePwdForm')">修 改</el-button>
+                    </div>
+                </template>
             </el-dialog>
 
         </el-container>
@@ -57,7 +65,7 @@
 <script>
 import {useUserStore} from "@/store/stores/userStore";
 import {useOrgStore} from "@/store/stores/orgStore";
-import Breadcrumb from "@/components/common/Breadcrumb";
+import Breadcrumb from "@/components/common/Breadcrumb.vue";
 
 export default {
     data() {
@@ -113,7 +121,7 @@ export default {
                 return;
             }
             const defaultPath = this.rootOrganizations.length > 0 ? '/organization/departmentanduser' : '/organization/departmentanduser/import-member';
-            if (this.$router.history.current.path !== defaultPath) {
+            if (this.$route.path !== defaultPath) {
                 this.$router.replace(defaultPath);
             }
         },
@@ -145,9 +153,9 @@ export default {
                     return;
                 }
                 // 组织数据加载完成后，根据是否有根组织决定跳转
-                if (this.rootOrganizations.length === 0 && this.$router.history.current.path !== '/organization/departmentanduser/import-member') {
+                if (this.rootOrganizations.length === 0 && this.$route.path !== '/organization/departmentanduser/import-member') {
                     this.$router.push('/organization/departmentanduser/import-member')
-                } else if (this.rootOrganizations.length > 0 && this.$router.history.current.path !== '/organization/departmentanduser') {
+                } else if (this.rootOrganizations.length > 0 && this.$route.path !== '/organization/departmentanduser') {
                     this.$router.push('/organization/departmentanduser')
                 }
             },

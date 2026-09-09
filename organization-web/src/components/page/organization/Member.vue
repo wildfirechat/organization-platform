@@ -13,13 +13,15 @@
                      node-key="id"
                      @node-click="handleNodeClick"
                      @node-expand="handleNodeExpand">
-                <span class="custom-tree-node" slot-scope="{ node}">
+                <template #default="{ node }">
+                <span class="custom-tree-node">
                     <span>{{ node.label }}({{ node.data.memberCount || 0 }})</span>
-                    <el-dropdown trigger="click" size="medium" @command="handleDepartmentCommand">
+                    <el-dropdown trigger="click" @command="handleDepartmentCommand">
                         <span @click.stop>
-                            <el-icon class="el-icon-more"/>
+                            <el-icon><MoreFilled/></el-icon>
                         </span>
-                        <el-dropdown-menu slot="dropdown">
+                        <template #dropdown>
+                        <el-dropdown-menu>
                             <el-dropdown-item v-if="!node.data.groupId"
                                               :disabled="!node.data.managerId"
                                               :command="{ c: 'create-org-group', node: node, depart: node.data }">创建组织官方群</el-dropdown-item>
@@ -44,8 +46,10 @@
                             <el-dropdown-item style="color: red"
                                               :command="{ c: 'remove', node: node, depart: node.data }">删除部门</el-dropdown-item>
                         </el-dropdown-menu>
+                        </template>
                     </el-dropdown>
                 </span>
+                </template>
             </el-tree>
             <div v-else>
                 TODO search result
@@ -61,7 +65,7 @@
                                 "部门负责人: " + currentOrg.managerName
                             }}</p>
                     </div>
-                    <el-button type="primary" icon="el-icon-plus" v-if="rootOrganizations.length > 0"
+                    <el-button type="primary" icon="Plus" v-if="rootOrganizations.length > 0"
                                @click="showAddDepartmentMemberDialog = true">添加成员
                     </el-button>
                     <el-button type="primary" v-if="rootOrganizations.length === 0"
@@ -82,13 +86,13 @@
                     </el-table-column>
                     <el-table-column>
                         <template v-slot="scope">
-                            <el-button class="f-btn" @click.stop="handleTransferDepartment(scope.row)" type="text"
+                            <el-button class="f-btn" @click.stop="handleTransferDepartment(scope.row)" link type="primary"
                                        size="small">变更部门
                             </el-button>
-                            <el-button class="f-btn" @click.stop="handleDeleteEmployee(scope.row)" type="text"
+                            <el-button class="f-btn" @click.stop="handleDeleteEmployee(scope.row)" link type="primary"
                                        size="small">操作离职
                             </el-button>
-                            <el-button class="f-btn" @click.stop="handleUpdatePassword(scope.row)" type="text"
+                            <el-button class="f-btn" @click.stop="handleUpdatePassword(scope.row)" link type="primary"
                                        size="small">修改密码
                             </el-button>
                         </template>
@@ -96,10 +100,12 @@
                 </el-table>
             </el-main>
             <el-card v-if="currentEmployeeDetail" style="margin-top: 0; flex-shrink: 0;">
-                <div slot="header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>用户信息</span>
-                    <el-button type="primary" size="small" @click="showUpdateEmployeeDialog = true">更新用户信息</el-button>
-                </div>
+                <template #header>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>用户信息</span>
+                        <el-button type="primary" size="small" @click="showUpdateEmployeeDialog = true">更新用户信息</el-button>
+                    </div>
+                </template>
                 <el-descriptions :column="3" border size="small">
                     <el-descriptions-item label="用户ID">{{ currentEmployeeDetail.employeeId }}</el-descriptions-item>
                     <el-descriptions-item label="姓名">{{ currentEmployeeDetail.name }}</el-descriptions-item>
@@ -128,59 +134,59 @@
             </el-header>
 
         </el-container>
-        <el-drawer title="操作离职" :visible.sync="showDeleteEmployeeDrawer" direction="rtl"
+        <el-drawer title="操作离职" v-model="showDeleteEmployeeDrawer" direction="rtl"
                    :before-close="onDeleteEmployee">
             <DeleteEmployee :employee="currentEmployee" :on-delete-employee="onDeleteEmployee"/>
         </el-drawer>
 
-        <el-dialog :visible.sync="showUpdateDepartmentDialog"
-                   :before-close="() => this.showUpdateDepartmentDialog = false">
+        <el-dialog v-model="showUpdateDepartmentDialog"
+                   :before-close="() => showUpdateDepartmentDialog = false">
             <UpdateDepartment v-if="showUpdateDepartmentDialog" :current-department="targetDepartment" :on-update-department="onUpdateDepartment"/>
         </el-dialog>
 
-        <el-dialog :visible.sync="showAddSubDepartmentDialog"
-                   :before-close="() => this.showAddSubDepartmentDialog = false">
+        <el-dialog v-model="showAddSubDepartmentDialog"
+                   :before-close="() => showAddSubDepartmentDialog = false">
             <AddSubDepartment
                 v-if="showAddSubDepartmentDialog"
                 :parent-department="currentOrg" :on-add-department="onAddDepartment"/>
         </el-dialog>
 
-        <el-dialog :visible.sync="showAddDepartmentMemberDialog" :close-on-click-modal="false"
-                   :before-close="() => { this.showAddDepartmentMemberDialog = false }">
+        <el-dialog v-model="showAddDepartmentMemberDialog" :close-on-click-modal="false"
+                   :before-close="() => { showAddDepartmentMemberDialog = false }">
             <AddDepartmentMember v-if="showAddDepartmentMemberDialog"
-                                 :on-cancel="() => this.showAddDepartmentMemberDialog = false"/>
+                                 :on-cancel="() => showAddDepartmentMemberDialog = false"/>
         </el-dialog>
 
-        <el-dialog title="变更部门" :visible.sync="showTransferDepartmentDialog" :close-on-click-modal="false"
-                   :before-close="() => { this.showTransferDepartmentDialog = false }">
+        <el-dialog title="变更部门" v-model="showTransferDepartmentDialog" :close-on-click-modal="false"
+                   :before-close="() => { showTransferDepartmentDialog = false }">
             <TransferMember
                 v-if="showTransferDepartmentDialog"
                 :employee="employeeToTransfer"
-                :on-cancel="() => this.showTransferDepartmentDialog = false"
+                :on-cancel="() => showTransferDepartmentDialog = false"
                 :on-success="onTransferSuccess"/>
         </el-dialog>
 
-        <el-dialog title="修改密码" :visible.sync="showUpdatePasswordDialog" :close-on-click-modal="false"
-                   :before-close="() => { this.showUpdatePasswordDialog = false }">
+        <el-dialog title="修改密码" v-model="showUpdatePasswordDialog" :close-on-click-modal="false"
+                   :before-close="() => { showUpdatePasswordDialog = false }">
             <UpdateEmployeePwd
                 v-if="showUpdatePasswordDialog"
                 :employee="employeeToUpdatePassword"
-                :on-cancel="() => this.showUpdatePasswordDialog = false"
+                :on-cancel="() => showUpdatePasswordDialog = false"
                 :on-success="onUpdatePasswordSuccess"/>
         </el-dialog>
 
-        <el-dialog title="更新用户信息" :visible.sync="showUpdateEmployeeDialog" :close-on-click-modal="false"
-                   :before-close="() => { this.showUpdateEmployeeDialog = false }">
+        <el-dialog title="更新用户信息" v-model="showUpdateEmployeeDialog" :close-on-click-modal="false"
+                   :before-close="() => { showUpdateEmployeeDialog = false }">
             <UpdateEmployee
                 v-if="showUpdateEmployeeDialog"
                 :employee="currentEmployeeDetail"
-                :on-cancel="() => this.showUpdateEmployeeDialog = false"
+                :on-cancel="() => showUpdateEmployeeDialog = false"
                 :on-success="onUpdateEmployeeSuccess"/>
         </el-dialog>
 
-        <el-dialog :title="managerTargetDepartment && managerTargetDepartment.managerId ? '修改组织领导' : '设置组织领导'" :visible.sync="showSetManagerDialog" :close-on-click-modal="false"
-                   :before-close="() => { this.showSetManagerDialog = false }">
-            <el-form label-position="right" size="medium">
+        <el-dialog :title="managerTargetDepartment && managerTargetDepartment.managerId ? '修改组织领导' : '设置组织领导'" v-model="showSetManagerDialog" :close-on-click-modal="false"
+                   :before-close="() => { showSetManagerDialog = false }">
+            <el-form label-position="right">
                 <el-form-item label="部门领导">
                     <el-select v-model="selectedManagerId" filterable placeholder="请选择部门领导" style="width: 100%">
                         <el-option
@@ -192,19 +198,21 @@
                     </el-select>
                 </el-form-item>
             </el-form>
-            <div slot="footer" style="display: flex; justify-content: flex-end">
-                <el-button @click="showSetManagerDialog = false">取消</el-button>
-                <el-button type="primary" :disabled="!selectedManagerId" @click="confirmSetManager">确定</el-button>
-            </div>
+            <template #footer>
+                <div style="display: flex; justify-content: flex-end">
+                    <el-button @click="showSetManagerDialog = false">取消</el-button>
+                    <el-button type="primary" :disabled="!selectedManagerId" @click="confirmSetManager">确定</el-button>
+                </div>
+            </template>
         </el-dialog>
     </el-container>
 </template>
 
 <script>
 import {useOrgStore} from "@/store/stores/orgStore";
-import AddSubDepartment from "@/components/page/organization/dialog/AddSubDepartment";
-import AddDepartmentMember from "@/components/page/organization/dialog/AddDepartmentMember";
-import DeleteEmployee from "@/components/page/organization/drawer/DeleteEmployee";
+import AddSubDepartment from "@/components/page/organization/dialog/AddSubDepartment.vue";
+import AddDepartmentMember from "@/components/page/organization/dialog/AddDepartmentMember.vue";
+import DeleteEmployee from "@/components/page/organization/drawer/DeleteEmployee.vue";
 import UpdateDepartment from "@/components/page/organization/dialog/UpdateDepartment.vue";
 import TransferMember from "@/components/page/organization/TransferMember.vue";
 import UpdateEmployeePwd from "@/components/page/organization/UpdateEmployeePwd.vue";
@@ -308,7 +316,7 @@ export default {
                 if (data.managerId && !data.managerName) {
                     api.queryEmployee(data.managerId).then(emp => {
                         if (emp && emp.name) {
-                            this.$set(data, 'managerName', emp.name);
+                            data.managerName = emp.name;
                         }
                     });
                 }
@@ -552,7 +560,7 @@ export default {
     padding-right: 8px;
 }
 
->>> .el-tree-node__content {
+:deep(.el-tree-node__content) {
     height: 50px;
 }
 

@@ -104,8 +104,8 @@ a {
     transition: opacity .5s;
 }
 
-.move-enter,
-.move-leave {
+.move-enter-from,
+.move-leave-to {
     opacity: 0;
 }
 

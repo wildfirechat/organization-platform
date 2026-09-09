@@ -39,9 +39,9 @@
             </el-table-column>
             <el-table-column>
                 <template v-slot="scope">
-                    <el-button class="f-btn" @click="handleClickEmployee(scope.row)" type="text" size="small">编辑部门</el-button>
-                    <el-button class="f-btn" @click="handleClickEmployee(scope.row)" type="text" size="small">添加子部门</el-button>
-                    <el-button class="f-btn" @click="handleClickEmployee(scope.row)" type="text" size="small" style="color: red">删除</el-button>
+                    <el-button class="f-btn" @click="handleClickEmployee(scope.row)" link type="primary" size="small">编辑部门</el-button>
+                    <el-button class="f-btn" @click="handleClickEmployee(scope.row)" link type="primary" size="small">添加子部门</el-button>
+                    <el-button class="f-btn" @click="handleClickEmployee(scope.row)" link type="primary" size="small" style="color: red">删除</el-button>
                 </template>
             </el-table-column>
         </el-table>

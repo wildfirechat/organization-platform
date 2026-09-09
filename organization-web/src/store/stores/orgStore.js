@@ -28,11 +28,12 @@ export const useOrgStore = defineStore('org', {
 
     async getRootOrganizationsWithChildren() {
       let rootOrgs = await Api.getRootOrganization();
-      this.rootOrganizations = [];
+      // vue3 的响应式基于 Proxy，对象放进 state 之后再改原始对象不会触发更新，
+      // 所以先把数据组装好，最后再整体赋值
+      let organizations = [];
       for (let i = 0; i < rootOrgs.length; i++) {
         let rootOrg = rootOrgs[i];
         let org = Object.assign(new Organization(), rootOrg);
-        this.rootOrganizations.push(org);
         let tmp = await Api.queryOrganizationWithChildren(rootOrg.id);
         let orgWC = Object.assign(new OrganizationWithChildren(), tmp);
         org._orgWithChildren = orgWC;
@@ -40,8 +41,10 @@ export const useOrgStore = defineStore('org', {
             Object.assign(org, orgWC.organization);
         }
         org.buildRenderData(orgWC);
-        console.log('query root organizationWithChildren', this.rootOrganizations);
+        organizations.push(org);
       }
+      this.rootOrganizations = organizations;
+      console.log('query root organizationWithChildren', this.rootOrganizations);
       this.rootOrganizationsLoaded = true;
     },
 

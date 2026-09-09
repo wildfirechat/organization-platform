@@ -5,7 +5,7 @@
             <div style="background: #f8f9fa; padding: 20px">
                 <p style="font-size: 14px; color: #1f2329">1. 下载导入模板</p>
                 <p style="font-size: 14px; margin: 2px 0 6px; color: #646a73">根据提示信息完善表格内容</p>
-                <el-button icon="el-icon-download" @click="downloadTemplate">下载空的模板表格</el-button>
+                <el-button icon="Download" @click="downloadTemplate">下载空的模板表格</el-button>
             </div>
             <div style="background: #f8f9fa; margin-top: 20px; padding: 20px">
                 <p style="font-size: 14px; color: #1f2329; padding-bottom: 20px">2. 上传完善后的模板</p>
@@ -23,7 +23,9 @@
                     :on-success="onUploadSuccess"
                     :on-error="onUploadError"
                     multiple>
-                    <i class="el-icon-upload"></i>
+                    <el-icon class="el-icon--upload">
+                        <UploadFilled/>
+                    </el-icon>
                     <div>
                         <el-button>选择文件</el-button>
                     </div>
@@ -38,7 +40,7 @@
 
         <el-dialog
             title="导入进度"
-            :visible.sync="progressVisible"
+            v-model="progressVisible"
             :close-on-click-modal="true"
             :close-on-press-escape="true"
             :show-close="true"
@@ -58,7 +60,7 @@
 
         <el-dialog
             title="导入失败明细"
-            :visible.sync="failDetailsVisible"
+            v-model="failDetailsVisible"
             width="600px">
             <div style="margin-bottom: 15px;">
                 导入完成，成功 {{ job.successCount }} 人，失败 {{ job.failCount }} 人。失败人员如下：
@@ -66,14 +68,14 @@
             <el-table :data="job.failDetails" border stripe height="400">
                 <el-table-column type="index" label="序号" width="60"></el-table-column>
                 <el-table-column prop="" label="失败信息">
-                    <template slot-scope="scope">
+                    <template v-slot="scope">
                         {{ scope.row }}
                     </template>
                 </el-table-column>
             </el-table>
-            <div slot="footer">
+            <template #footer>
                 <el-button type="primary" @click="closeFailDetails">确定</el-button>
-            </div>
+            </template>
         </el-dialog>
     </div>
 
@@ -118,7 +120,7 @@ export default {
             if (this.job.status === 'SUCCESS') {
                 return 'success';
             }
-            return null;
+            return '';
         },
         statusText() {
             switch (this.job.status) {
@@ -145,7 +147,7 @@ export default {
         }
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         this.stopPolling();
     },
 
@@ -268,11 +270,11 @@ export default {
     width: 100%;
 }
 
->>> .el-upload {
+:deep(.el-upload) {
     width: 100%;
 }
 
->>> .el-upload-dragger {
+:deep(.el-upload-dragger) {
     width: 100%;
     height: 210px;
 }

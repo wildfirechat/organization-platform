@@ -5,24 +5,27 @@
                  label-position="right"
                  label-width="100px"
                  :model="employee"
-                 size="medium"
                  class="demo-form-inline">
             <el-form-item label="姓名">
                 <el-input v-model.trim="employee.name" placeholder="姓名"></el-input>
             </el-form-item>
             <el-form-item label="部门">
                 <el-input disabled>
-                    <div v-if="checkedDepartments && checkedDepartments.length" slot="prepend">
-                        <el-tag
-                            v-for="(depart, index) in checkedDepartments"
-                            :key="index"
-                            closable
-                            @close="handleCloseTag(depart)"
-                            type="info">
-                            {{ depart && depart.name }}
-                        </el-tag>
-                    </div>
-                    <el-button slot="append" type="text" icon="el-icon-edit" @click="showChooseDepartmentDialog = true"></el-button>
+                    <template #prepend v-if="checkedDepartments && checkedDepartments.length">
+                        <div>
+                            <el-tag
+                                v-for="(depart, index) in checkedDepartments"
+                                :key="index"
+                                closable
+                                @close="handleCloseTag(depart)"
+                                type="info">
+                                {{ depart && depart.name }}
+                            </el-tag>
+                        </div>
+                    </template>
+                    <template #append>
+                        <el-button link type="primary" icon="Edit" @click="showChooseDepartmentDialog = true"></el-button>
+                    </template>
                 </el-input>
             </el-form-item>
             <el-form-item label="手机号码">
@@ -36,17 +39,20 @@
             </el-form-item>
             <el-form-item label="头像">
                 <el-input v-model="employee.portraitUrl" placeholder="头像链接地址">
-                    <el-upload
-                        slot="append"
-                        class="avatar-uploader"
-                        :action="uploadMediaUrl"
-                        :with-credentials="true"
-                        :show-file-list="false"
-                        :on-success="handleAvatarSuccess"
-                        :before-upload="beforeAvatarUpload">
-                        <img v-if="employee.portraitUrl" :src="employee.portraitUrl" class="avatar">
-                        <i v-else class="el-icon-plus avatar-uploader-icon"></i>
-                    </el-upload>
+                    <template #append>
+                        <el-upload
+                            class="avatar-uploader"
+                            :action="uploadMediaUrl"
+                            :with-credentials="true"
+                            :show-file-list="false"
+                            :on-success="handleAvatarSuccess"
+                            :before-upload="beforeAvatarUpload">
+                            <img v-if="employee.portraitUrl" :src="employee.portraitUrl" class="avatar">
+                            <el-icon v-else class="avatar-uploader-icon">
+                                <Plus/>
+                            </el-icon>
+                        </el-upload>
+                    </template>
                 </el-input>
                 <div class="el-upload__tip">需要先配置 oss，只能上传jpg/png文件，且不超过2MB</div>
             </el-form-item>
@@ -60,9 +66,9 @@
         </div>
 
         <!-- 添加 ChooseDepartment 对话框 -->
-        <el-dialog :visible.sync="showChooseDepartmentDialog" append-to-body title="选择部门">
+        <el-dialog v-model="showChooseDepartmentDialog" append-to-body title="选择部门">
             <ChooseDepartment
-                :on-cancel="() => this.showChooseDepartmentDialog = false"
+                :on-cancel="() => showChooseDepartmentDialog = false"
                 :on-confirm="onCheckDepartment"/>
         </el-dialog>
     </div>
@@ -70,7 +76,7 @@
 
 <script>
 import { useOrgStore } from "@/store/stores/orgStore";
-import ChooseDepartment from "@/components/page/organization/dialog/ChooseDepartment";
+import ChooseDepartment from "@/components/page/organization/dialog/ChooseDepartment.vue";
 
 export default {
     name: "AddDepartmentMember",
@@ -165,7 +171,7 @@ export default {
     color: #1f2329;
 }
 
->>> .el-form-item__content {
+:deep(.el-form-item__content) {
     width: 300px;
 }
 

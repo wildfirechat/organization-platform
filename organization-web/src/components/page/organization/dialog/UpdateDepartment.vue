@@ -1,19 +1,23 @@
 <template>
     <div>
         <p class="title">更新部门</p>
-        <el-form label-position="right" size="medium" class="demo-form-inline">
+        <el-form label-position="right" class="demo-form-inline">
             <el-form-item label="部门名称">
                 <el-input v-model.trim="orgName" placeholder="部门名称"></el-input>
             </el-form-item>
             <el-form-item label="部门负责人">
                 <el-input disabled>
-                    <div slot="prepend">
-                        <el-tag v-if="computedManager" closable @close="handleCloseTag(manager)" type="info">
-                            {{ computedManager.name }}
-                        </el-tag>
-                    </div>
-                    <el-button slot="append" type="text" icon="el-icon-edit"
-                               @click="showChooseMemberDialog = true"></el-button>
+                    <template #prepend>
+                        <div>
+                            <el-tag v-if="computedManager" closable @close="handleCloseTag(manager)" type="info">
+                                {{ computedManager.name }}
+                            </el-tag>
+                        </div>
+                    </template>
+                    <template #append>
+                        <el-button link type="primary" icon="Edit"
+                                   @click="showChooseMemberDialog = true"></el-button>
+                    </template>
                 </el-input>
             </el-form-item>
             <el-form-item v-if="!currentDepartment.groupId" label="是否创建部门群">
@@ -26,11 +30,11 @@
         </div>
 
         <!-- 集成 ChooseMember 对话框 -->
-        <el-dialog :visible.sync="showChooseMemberDialog" append-to-body title="选择成员">
+        <el-dialog v-model="showChooseMemberDialog" append-to-body title="选择成员">
             <ChooseMember v-if="showChooseMemberDialog"
                           :initial-checked-members="initialCheckedMembers"
                           :max-choose-count="1"
-                          :on-cancel="() => this.showChooseMemberDialog = false" :on-confirm="onCheckMember"/>
+                          :on-cancel="() => showChooseMemberDialog = false" :on-confirm="onCheckMember"/>
         </el-dialog>
     </div>
 </template>
@@ -38,7 +42,7 @@
 <script>
 import {useOrgStore} from "@/store/stores/orgStore";
 import api from "@/api/api";
-import ChooseMember from "@/components/page/organization/dialog/ChooseMember";
+import ChooseMember from "@/components/page/organization/dialog/ChooseMember.vue";
 
 export default {
     name: "UpdateDepartment",

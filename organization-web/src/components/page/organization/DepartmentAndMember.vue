@@ -15,7 +15,7 @@
 </template>
 
 <script>
-import Member from "@/components/page/organization/Member";
+import Member from "@/components/page/organization/Member.vue";
 import Department from "@/components/page/organization/Department.vue";
 
 export default {

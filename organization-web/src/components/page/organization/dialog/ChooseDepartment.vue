@@ -4,7 +4,7 @@
         <div class="container">
             <div class="org-container">
                 <el-input class="input" v-model="input" placeholder="请输入部门名称"></el-input>
-                <Eltree2 v-if="!input" :data="rootOrganizations"
+                <el-tree v-if="!input" :data="rootOrganizations"
                          ref="tree"
                          :expand-on-click-node="false"
                          show-checkbox
@@ -16,12 +16,12 @@
                          lazy
                          :load="loadNode"
                          @node-click="handleNodeClick">
-                </Eltree2>
+                </el-tree>
             </div>
             <div class="checked-org-container">
                 <div style="width: 100%; display: flex; justify-content: space-between; align-items: center">
                     <span>{{ '已选择： ' + checkedDepartments.length + '个部门' }}</span>
-                    <el-button type="text" @click="resetChecked">清空</el-button>
+                    <el-button link type="primary" @click="resetChecked">清空</el-button>
                 </div>
                 <el-table
                     ref="multipleTable"
@@ -38,7 +38,7 @@
                     </el-table-column>
                     <el-table-column align="right">
                         <template v-slot="scope">
-                            <el-button class="f-btn" @click="unCheckDepartment(scope.row)" type="text" icon="el-icon-close" size="small"></el-button>
+                            <el-button class="f-btn" @click="unCheckDepartment(scope.row)" link type="primary" icon="Close" size="small"></el-button>
                         </template>
                     </el-table-column>
                 </el-table>
@@ -53,7 +53,6 @@
 
 <script>
 import {useOrgStore} from "@/store/stores/orgStore";
-import Eltree2 from '../../../../../vendor/tree/src/tree'
 
 export default {
     name: "ChooseDepartment",
@@ -91,7 +90,9 @@ export default {
     },
 
     mounted() {
-        this.$refs.tree.setCheckedNodes([this.checkedDepartment])
+        if (this.checkedDepartment) {
+            this.$refs.tree.setCheckedNodes([this.checkedDepartment])
+        }
     },
 
     methods: {
@@ -132,9 +133,6 @@ export default {
             this.checkedDepartments = this.checkedDepartments.filter(d => d.id !== department.id);
             this.$refs.tree.setCheckedNodes(this.checkedDepartments);
         }
-    },
-    components: {
-        Eltree2
     }
 }
 </script>

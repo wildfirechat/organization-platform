@@ -3,17 +3,21 @@
         <div v-if="employee">
             <p>将 <b>{{ employee.name }}</b> 变更至：</p>
             <el-input disabled style="margin: 20px 0;">
-                <div v-if="selectedDepartments && selectedDepartments.length" slot="prepend">
-                    <el-tag
-                        v-for="(depart, index) in selectedDepartments"
-                        :key="index"
-                        closable
-                        @close="onUncheckDepartment(depart)"
-                        type="info">
-                        {{ depart && depart.name }}
-                    </el-tag>
-                </div>
-                <el-button slot="append" type="text" icon="el-icon-edit" @click="showChooseDepartmentDialog = true"></el-button>
+                <template #prepend v-if="selectedDepartments && selectedDepartments.length">
+                    <div>
+                        <el-tag
+                            v-for="(depart, index) in selectedDepartments"
+                            :key="index"
+                            closable
+                            @close="onUncheckDepartment(depart)"
+                            type="info">
+                            {{ depart && depart.name }}
+                        </el-tag>
+                    </div>
+                </template>
+                <template #append>
+                    <el-button link type="primary" icon="Edit" @click="showChooseDepartmentDialog = true"></el-button>
+                </template>
             </el-input>
             <div style="text-align: right; margin-top: 20px;">
                 <el-button @click="onCancel">取消</el-button>
@@ -22,9 +26,9 @@
         </div>
 
         <!-- 选择部门对话框 -->
-        <el-dialog :visible.sync="showChooseDepartmentDialog" append-to-body>
+        <el-dialog v-model="showChooseDepartmentDialog" append-to-body>
             <ChooseDepartment
-                :on-cancel="() => this.showChooseDepartmentDialog = false"
+                :on-cancel="() => showChooseDepartmentDialog = false"
                 :on-confirm="onCheckDepartment"/>
         </el-dialog>
     </div>
@@ -32,7 +36,7 @@
 
 <script>
 import { useOrgStore } from "@/store/stores/orgStore";
-import ChooseDepartment from "@/components/page/organization/dialog/ChooseDepartment";
+import ChooseDepartment from "@/components/page/organization/dialog/ChooseDepartment.vue";
 
 export default {
     name: "TransferMember",

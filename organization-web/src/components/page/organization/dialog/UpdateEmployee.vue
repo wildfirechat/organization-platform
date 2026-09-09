@@ -1,7 +1,7 @@
 <template>
     <div>
         <p class="title">更新用户信息</p>
-        <el-form label-position="right" size="medium" class="demo-form-inline" label-width="100px">
+        <el-form label-position="right" class="demo-form-inline" label-width="100px">
             <el-row :gutter="20">
                 <el-col :span="12">
                     <el-form-item label="用户ID">

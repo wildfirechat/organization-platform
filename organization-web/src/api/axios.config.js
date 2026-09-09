@@ -1,5 +1,6 @@
 import Axios from 'axios'
-import App from '../main'
+import {ElMessage} from 'element-plus'
+import router from '../router'
 // axios实例
 const instance = Axios.create({
     // 针对实际情况进行修改
@@ -28,10 +29,10 @@ instance.interceptors.response.use(response => {
     } else {
         if (response.config.url !== '/login' && code === 13) {
             localStorage.removeItem('authToken');
-            App.$message.error('请先登陆')
-            App.$router.replace('/login')
+            ElMessage.error('请先登陆')
+            router.replace('/login')
         }
-        App.$message.error(message);
+        ElMessage.error(message);
 
         return Promise.reject({code});
     }

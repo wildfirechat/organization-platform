@@ -3,10 +3,11 @@
         <div class="container">
             <div class="org-container">
                 <el-input class="input" v-model="input" placeholder="请输入成员名称"></el-input>
-                <Eltree2 v-if="!input" :data="rootOrganizations"
+                <el-tree v-if="!input" :data="rootOrganizations"
                          ref="tree"
                          :props="treeDefaultProps"
                          :expand-on-click-node="true"
+                         show-checkbox
                          node-key="employeeId"
                          check-on-click-node
                          :default-checked-keys="initialCheckedMembers"
@@ -16,12 +17,12 @@
                          lazy
                          :load="loadNode"
                          @node-click="handleNodeClick">
-                </Eltree2>
+                </el-tree>
             </div>
             <div class="checked-org-container">
                 <div style="width: 100%; display: flex; justify-content: space-between; align-items: center">
                     <span>{{ '已选择： ' + checkedMembers.length + '个成员' }}</span>
-                    <el-button type="text" @click="resetChecked">清空</el-button>
+                    <el-button link type="primary" @click="resetChecked">清空</el-button>
                 </div>
                 <el-table
                     ref="multipleTable"
@@ -38,7 +39,7 @@
                     </el-table-column>
                     <el-table-column align="right">
                         <template v-slot="scope">
-                            <el-button class="f-btn" @click="unCheckDepartment(scope.row)" type="text" icon="el-icon-close" size="small"></el-button>
+                            <el-button class="f-btn" @click="unCheckDepartment(scope.row)" link type="primary" icon="Close" size="small"></el-button>
                         </template>
                     </el-table-column>
                 </el-table>
@@ -54,11 +55,9 @@
 
 <script>
 import {useOrgStore} from "@/store/stores/orgStore";
-import Eltree2 from '../../../../../vendor/tree/src/tree'
 
 export default {
     name: "ChooseDepartment",
-    components: {Eltree2},
     props: {
         initialCheckedMembers: {
             type: Array,
@@ -91,6 +90,9 @@ export default {
                 label: 'name',
                 children: 'children',
                 isLeaf: 'isLeaf',// el-tree 默认不会找这个属性
+                // 只有成员节点才允许勾选，部门节点的复选框用 css 隐藏掉
+                class: (data) => (data.showCheckbox ? '' : 'hide-node-checkbox'),
+                disabled: (data) => !data.showCheckbox,
             },
             input: '',
             checkedMembers: [],
@@ -159,6 +161,11 @@ export default {
 </script>
 
 <style scoped>
+/* 部门节点不显示复选框，只有成员可以勾选 */
+:deep(.hide-node-checkbox > .el-tree-node__content > .el-checkbox) {
+    display: none;
+}
+
 .title {
     position: absolute;
     top: 20px;

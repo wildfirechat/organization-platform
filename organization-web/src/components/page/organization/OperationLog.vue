@@ -2,21 +2,21 @@
     <div style="padding: 20px; height: 100%; display: flex; flex-direction: column;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h3 style="margin: 0;">操作日志</h3>
-            <el-button type="danger" plain icon="el-icon-delete" @click="clearLogs">清空日志</el-button>
+            <el-button type="danger" plain icon="Delete" @click="clearLogs">清空日志</el-button>
         </div>
         <el-table :data="logs" border stripe style="flex: 1; overflow-y: auto;">
             <el-table-column prop="id" label="ID" width="80"></el-table-column>
             <el-table-column prop="userId" label="操作人" width="180"></el-table-column>
             <el-table-column prop="operation" label="操作" width="180"></el-table-column>
             <el-table-column label="结果" width="100">
-                <template slot-scope="scope">
+                <template v-slot="scope">
                     <el-tag v-if="scope.row.result === 0" type="success" size="small">成功</el-tag>
                     <el-tag v-else type="danger" size="small">失败</el-tag>
                 </template>
             </el-table-column>
             <el-table-column prop="value" label="描述"></el-table-column>
             <el-table-column label="时间" width="180">
-                <template slot-scope="scope">
+                <template v-slot="scope">
                     {{ formatTime(scope.row.timestamp) }}
                 </template>
             </el-table-column>
