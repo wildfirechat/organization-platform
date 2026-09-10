@@ -1,44 +1,24 @@
 <template>
     <div>
-        <p class="title">新建部门</p>
-        <el-form
-            label-position="right"
-            :model="organization"
-            class="demo-form-inline">
-            <el-form-item label="部门名称">
-                <el-input v-model.trim="organization.name" placeholder="部门名称"></el-input>
+        <el-form label-position="right" label-width="96px" :model="organization">
+            <el-form-item label="部门名称" required>
+                <el-input v-model.trim="organization.name" placeholder="请输入部门名称"/>
             </el-form-item>
             <el-form-item label="上级部门">
-                <el-input disabled :value="parentDepartment.name">
-                </el-input>
+                <el-input disabled :model-value="parentDepartment.name"/>
             </el-form-item>
             <el-form-item label="部门负责人">
-                <el-input disabled>
-                    <template #prepend v-if="managers.length > 0">
-                        <div>
-                            <el-tag
-                                v-for="(member, index) in managers"
-                                :key="index"
-                                closable
-                                @close="handleCloseTag(member)"
-                                type="info">
-                                {{ member.name }}
-                            </el-tag>
-                        </div>
-                    </template>
-                    <template #append>
-                        <el-button link type="primary" icon="Edit" @click="showChooseMemberDialog = true"></el-button>
-                    </template>
-                </el-input>
+                <PickerField :items="managers" placeholder="点击选择部门负责人"
+                             @open="showChooseMemberDialog = true" @remove="handleCloseTag"/>
             </el-form-item>
         </el-form>
-        <div class="action-container">
+
+        <div class="wf-dialog-actions">
             <el-button @click="onAddDepartment(false)">取消</el-button>
             <el-button type="primary" :disabled="!confirmButtonEnable" @click="onConfirm">确定</el-button>
         </div>
 
-        <!-- 集成 ChooseMember 对话框 -->
-        <el-dialog v-model="showChooseMemberDialog" append-to-body title="选择成员">
+        <el-dialog v-model="showChooseMemberDialog" append-to-body title="选择成员" width="760px">
             <ChooseMember
                 :initial-checked-members="initialCheckedMembers"
                 :max-choose-count="1"
@@ -49,12 +29,13 @@
 </template>
 
 <script>
-import { useOrgStore } from "@/store/stores/orgStore";
+import {useOrgStore} from "@/store/stores/orgStore";
 import ChooseMember from "@/components/page/organization/dialog/ChooseMember.vue";
+import PickerField from "@/components/common/PickerField.vue";
 
 export default {
     name: "AddSubDepartment",
-    components: {ChooseMember},
+    components: {PickerField, ChooseMember},
     props: {
         parentDepartment: {
             type: Object,
@@ -68,7 +49,7 @@ export default {
 
     setup() {
         const orgStore = useOrgStore();
-        return { orgStore };
+        return {orgStore};
     },
 
     data() {
@@ -116,24 +97,3 @@ export default {
 }
 </script>
 
-<style scoped>
-
-.title {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    font-size: 16px;
-    color: #1f2329;
-}
-
-/*>>> .el-form-item__content {*/
-/*    width: 300px;*/
-/*}*/
-
-.action-container {
-    display: flex;
-    justify-content: flex-end;
-    margin-right: 10px;
-}
-
-</style>

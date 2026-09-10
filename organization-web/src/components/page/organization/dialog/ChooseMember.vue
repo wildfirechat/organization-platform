@@ -1,54 +1,57 @@
 <template>
-    <div>
-        <div class="container">
-            <div class="org-container">
-                <el-input class="input" v-model="input" placeholder="请输入成员名称"></el-input>
-                <el-tree v-if="!input" :data="rootOrganizations"
-                         ref="tree"
-                         :props="treeDefaultProps"
-                         :expand-on-click-node="true"
-                         show-checkbox
-                         node-key="employeeId"
-                         check-on-click-node
-                         :default-checked-keys="initialCheckedMembers"
-                         @check-change="onCheckChange"
-                         check-strictly
-                         :render-after-expand='false'
-                         lazy
-                         :load="loadNode"
-                         @node-click="handleNodeClick">
-                </el-tree>
-            </div>
-            <div class="checked-org-container">
-                <div style="width: 100%; display: flex; justify-content: space-between; align-items: center">
-                    <span>{{ '已选择： ' + checkedMembers.length + '个成员' }}</span>
-                    <el-button link type="primary" @click="resetChecked">清空</el-button>
+    <div class="pk-dialog">
+        <div class="pk-panes">
+            <div class="pk-pane">
+                <div class="pk-pane-head">
+                    <span class="pk-pane-title">组织架构</span>
                 </div>
-                <el-table
-                    ref="multipleTable"
-                    :data="checkedMembers"
-                    empty-text="未选择任何成员"
-                    tooltip-effect="dark"
-                    style="width: 100%"
-                    :show-header="false"
-                    :cell-style="{padding: '0', height: '50px'}">
-                    <el-table-column
-                        prop="name"
-                        label="成员名"
-                        width="240">
-                    </el-table-column>
-                    <el-table-column align="right">
-                        <template v-slot="scope">
-                            <el-button class="f-btn" @click="unCheckDepartment(scope.row)" link type="primary" icon="Close" size="small"></el-button>
-                        </template>
-                    </el-table-column>
-                </el-table>
+                <el-scrollbar class="pk-pane-body">
+                    <el-tree :data="rootOrganizations"
+                             ref="tree"
+                             :props="treeDefaultProps"
+                             :expand-on-click-node="true"
+                             show-checkbox
+                             node-key="employeeId"
+                             check-on-click-node
+                             :default-checked-keys="initialCheckedMembers"
+                             @check-change="onCheckChange"
+                             check-strictly
+                             :render-after-expand="false"
+                             lazy
+                             :load="loadNode"
+                             empty-text="暂无成员数据"
+                             @node-click="handleNodeClick"/>
+                </el-scrollbar>
+            </div>
+
+            <div class="pk-pane">
+                <div class="pk-pane-head">
+                    <span class="pk-pane-title">已选 {{ checkedMembers.length }} 个成员</span>
+                    <el-button link type="primary" :disabled="!checkedMembers.length" @click="resetChecked">
+                        清空
+                    </el-button>
+                </div>
+                <el-scrollbar class="pk-pane-body">
+                    <p v-if="!checkedMembers.length" class="pk-empty">未选择任何成员</p>
+                    <div v-for="member in checkedMembers" :key="member.employeeId" class="pk-row">
+                        <span class="wf-ellipsis">{{ member.name }}</span>
+                        <el-icon class="pk-remove" @click="unCheckDepartment(member)">
+                            <Close/>
+                        </el-icon>
+                    </div>
+                </el-scrollbar>
             </div>
         </div>
-        <div class="action-container">
-            <p class="tip" v-if="checkedMembers.length > maxChooseCount">{{ '最多允许选择' + maxChooseCount + '个成员' }}</p>
+
+        <div class="wf-dialog-actions">
+            <span v-if="checkedMembers.length > maxChooseCount" class="over-tip">
+                {{ '最多允许选择 ' + maxChooseCount + ' 个成员' }}
+            </span>
             <el-button @click="onCancel">取消</el-button>
-            <el-button type="primary" :disabled="checkedMembers.length === 0 || checkedMembers.length > maxChooseCount" @click="() => {onConfirm(checkedMembers) ; resetChecked()}">确定</el-button>
+            <el-button type="primary"
+                       :disabled="checkedMembers.length === 0 || checkedMembers.length > maxChooseCount"
+                       @click="() => {onConfirm(checkedMembers) ; resetChecked()}">确定
+            </el-button>
         </div>
     </div>
 </template>
@@ -57,7 +60,7 @@
 import {useOrgStore} from "@/store/stores/orgStore";
 
 export default {
-    name: "ChooseDepartment",
+    name: "ChooseMember",
     props: {
         initialCheckedMembers: {
             type: Array,
@@ -94,7 +97,6 @@ export default {
                 class: (data) => (data.showCheckbox ? '' : 'hide-node-checkbox'),
                 disabled: (data) => !data.showCheckbox,
             },
-            input: '',
             checkedMembers: [],
         }
     },
@@ -166,46 +168,9 @@ export default {
     display: none;
 }
 
-.title {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    font-size: 16px;
-    color: #1f2329;
-}
-
-.container {
-    display: flex;
-    margin: 20px;
-}
-
-.org-container {
-    width: 50%;
-    padding: 20px 20px 20px 10px;
-    border-right: 1px solid lightgrey;
-    height: 500px;
-    overflow-y: auto;
-}
-
-.org-container .input {
-    margin-bottom: 10px;
-    padding-left: 10px;
-}
-
-.checked-org-container {
-    width: 50%;
-    padding: 20px;
-}
-
-.action-container {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    margin-right: 20px;
-}
-
-.action-container .tip {
-    color: red;
-    margin-right: 20px;
+.over-tip {
+    margin-right: auto;
+    font-size: 13px;
+    color: var(--wf-danger);
 }
 </style>

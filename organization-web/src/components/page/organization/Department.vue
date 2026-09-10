@@ -1,68 +1,67 @@
 <template>
-    <el-main style="padding: 0">
-        <div style="display: none; flex-direction: row; justify-content: space-between; align-items: center">
-            <el-button type="primary">新建部门</el-button>
+    <div class="department-page">
+        <PageHeader v-if="showHeader" title="部门" description="以表格形式查看部门层级、人数与部门群信息"/>
+
+        <div class="wf-panel department-panel">
+            <el-table
+                :data="rootOrganizations"
+                row-key="id"
+                lazy
+                :load="loadNode"
+                empty-text="暂无部门数据"
+                :tree-props="{children: 'children', hasChildren: 'hasChildren'}"
+                @selection-change="handleSelectionChange">
+                <el-table-column prop="name" label="部门名称" min-width="200"/>
+                <el-table-column prop="memberCount" label="部门人数" width="110" align="right">
+                    <template v-slot="scope">
+                        <span class="wf-num">{{ scope.row.memberCount || 0 }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="managerName" label="负责人" min-width="140">
+                    <template v-slot="scope">
+                        <span v-if="scope.row.managerName">{{ scope.row.managerName }}</span>
+                        <span v-else class="wf-muted">未设置</span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="部门群" min-width="160">
+                    <template v-slot="scope">
+                        <el-tag v-if="scope.row.groupId" size="small" type="success" effect="light">已创建</el-tag>
+                        <span v-else class="wf-muted">未创建</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="office" label="办公地点" min-width="140">
+                    <template v-slot="scope">
+                        <span v-if="scope.row.office">{{ scope.row.office }}</span>
+                        <span v-else class="wf-muted">—</span>
+                    </template>
+                </el-table-column>
+            </el-table>
         </div>
-        <el-table
-            :data="rootOrganizations"
-            style="width: 100%;margin-bottom: 20px;"
-            row-key="id"
-            lazy
-            :load="loadNode"
-            :tree-props="{children: 'children', hasChildren: 'hasChildren'}"
-            @selection-change="handleSelectionChange">
-            <el-table-column
-                type="selection"
-                width="55">
-            </el-table-column>
-            <el-table-column
-                prop="name"
-                label="部门名称"
-                width="180">
-            </el-table-column>
-            <el-table-column
-                prop="memberCount"
-                label="部门人数"
-                width="180">
-            </el-table-column>
-            <el-table-column
-                prop="managerId"
-                label=" 负责人">
-            </el-table-column>
-            <el-table-column
-                prop="groupId"
-                label="部门群名称">
-            </el-table-column>
-            <el-table-column
-                prop="office"
-                label="部门群群主">
-            </el-table-column>
-            <el-table-column>
-                <template v-slot="scope">
-                    <el-button class="f-btn" @click="handleClickEmployee(scope.row)" link type="primary" size="small">编辑部门</el-button>
-                    <el-button class="f-btn" @click="handleClickEmployee(scope.row)" link type="primary" size="small">添加子部门</el-button>
-                    <el-button class="f-btn" @click="handleClickEmployee(scope.row)" link type="primary" size="small" style="color: red">删除</el-button>
-                </template>
-            </el-table-column>
-        </el-table>
-    </el-main>
+    </div>
 </template>
 
 <script>
-import { useOrgStore } from "@/store/stores/orgStore";
+import {useOrgStore} from "@/store/stores/orgStore";
+import PageHeader from "@/components/common/PageHeader.vue";
 
 export default {
-    name: "createDepartment",
+    name: "Department",
+    components: {PageHeader},
+    props: {
+        showHeader: {
+            type: Boolean,
+            default: true
+        }
+    },
     data() {
         return {
             multipleSelection: [],
-            input: '',
         }
     },
 
     setup() {
         const orgStore = useOrgStore();
-        return { orgStore };
+        return {orgStore};
     },
 
     computed: {
@@ -72,15 +71,6 @@ export default {
     },
 
     methods: {
-        toggleSelection(rows) {
-            if (rows) {
-                rows.forEach(row => {
-                    this.$refs.multipleTable.toggleRowSelection(row);
-                });
-            } else {
-                this.$refs.multipleTable.clearSelection();
-            }
-        },
         handleSelectionChange(val) {
             this.multipleSelection = val;
         },
@@ -94,21 +84,20 @@ export default {
             } else {
                 resolve(data.children ? data.children : data);
             }
-        },
-
-        handleClickEmployee(){
-
         }
     }
 }
 </script>
 
 <style scoped>
-.f-btn {
-    display: none;
+.department-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
 }
 
-.el-table__body tr:hover .f-btn {
-    display: inline;
+.department-panel {
+    padding-bottom: 16px;
 }
 </style>

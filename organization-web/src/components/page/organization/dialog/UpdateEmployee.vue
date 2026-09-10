@@ -1,11 +1,10 @@
 <template>
     <div>
-        <p class="title">更新用户信息</p>
-        <el-form label-position="right" class="demo-form-inline" label-width="100px">
+        <el-form label-position="right" label-width="90px">
             <el-row :gutter="20">
                 <el-col :span="12">
                     <el-form-item label="用户ID">
-                        <el-input v-model="form.employeeId" disabled></el-input>
+                        <el-input v-model="form.employeeId" disabled/>
                     </el-form-item>
                 </el-col>
                 <el-col :span="12">
@@ -98,7 +97,7 @@
                 </el-col>
             </el-row>
         </el-form>
-        <div class="action-container">
+        <div class="wf-dialog-actions">
             <el-button @click="onCancel">取消</el-button>
             <el-button type="primary" @click="onConfirm">确定</el-button>
         </div>
@@ -170,17 +169,3 @@ export default {
     }
 }
 </script>
-
-<style scoped>
-.title {
-    font-size: 16px;
-    color: #1f2329;
-    margin-bottom: 20px;
-}
-
-.action-container {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 20px;
-}
-</style>

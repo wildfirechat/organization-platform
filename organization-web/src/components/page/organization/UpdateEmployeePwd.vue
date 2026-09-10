@@ -1,35 +1,28 @@
 <template>
-    <div>
-        <div v-if="employee">
-            <p>修改 <b>{{ employee.name }}</b> 的密码：</p>
-            <el-form style="margin: 20px 0;" :model="form" :rules="rules" ref="form">
-                <el-form-item prop="password">
-                    <el-input 
-                        v-model="form.password" 
-                        type="password" 
-                        placeholder="请输入新密码"
-                        show-password>
-                    </el-input>
-                </el-form-item>
-                <el-form-item prop="confirmPassword">
-                    <el-input 
-                        v-model="form.confirmPassword" 
-                        type="password" 
-                        placeholder="请确认新密码"
-                        show-password>
-                    </el-input>
-                </el-form-item>
-            </el-form>
-            <div style="text-align: right; margin-top: 20px;">
-                <el-button @click="onCancel">取消</el-button>
-                <el-button type="primary" :disabled="!form.password || !form.confirmPassword" @click="confirmUpdate">确定</el-button>
-            </div>
+    <div v-if="employee">
+        <p class="lead">为 <b>{{ employee.name }}</b> 设置新的登录密码：</p>
+
+        <el-form :model="form" :rules="rules" ref="form" label-position="top">
+            <el-form-item label="新密码" prop="password">
+                <el-input v-model="form.password" type="password" placeholder="请输入新密码，至少 6 位" show-password/>
+            </el-form-item>
+            <el-form-item label="确认新密码" prop="confirmPassword">
+                <el-input v-model="form.confirmPassword" type="password" placeholder="请再次输入新密码" show-password
+                          @keyup.enter="confirmUpdate"/>
+            </el-form-item>
+        </el-form>
+
+        <div class="wf-dialog-actions">
+            <el-button @click="onCancel">取消</el-button>
+            <el-button type="primary" :disabled="!form.password || !form.confirmPassword" @click="confirmUpdate">
+                确定
+            </el-button>
         </div>
     </div>
 </template>
 
 <script>
-import { useOrgStore } from "@/store/stores/orgStore";
+import {useOrgStore} from "@/store/stores/orgStore";
 
 export default {
     name: "UpdateEmployeePwd",
@@ -41,7 +34,8 @@ export default {
         onSuccess: {
             type: Function,
             required: false,
-            default: () => {}
+            default: () => {
+            }
         },
         onCancel: {
             type: Function,
@@ -51,7 +45,7 @@ export default {
 
     setup() {
         const orgStore = useOrgStore();
-        return { orgStore };
+        return {orgStore};
     },
 
     data() {
@@ -70,12 +64,12 @@ export default {
             },
             rules: {
                 password: [
-                    { required: true, message: '请输入新密码', trigger: 'blur' },
-                    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+                    {required: true, message: '请输入新密码', trigger: 'blur'},
+                    {min: 6, message: '密码长度不能少于6位', trigger: 'blur'}
                 ],
                 confirmPassword: [
-                    { required: true, message: '请确认新密码', trigger: 'blur' },
-                    { validator: validateConfirmPassword, trigger: 'blur' }
+                    {required: true, message: '请确认新密码', trigger: 'blur'},
+                    {validator: validateConfirmPassword, trigger: 'blur'}
                 ]
             }
         };
@@ -102,4 +96,8 @@ export default {
 </script>
 
 <style scoped>
+.lead {
+    margin-bottom: 16px;
+    color: var(--wf-text-2);
+}
 </style>

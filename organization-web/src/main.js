@@ -7,6 +7,8 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import * as ElementPlusIconsVue from '@element-plus/icons-vue';
 import {createI18n} from 'vue-i18n';
 import 'element-plus/dist/index.css'; // 默认主题
+// 主题需要在 element-plus 之后引入，否则设计令牌会被组件库的默认变量覆盖
+import '@/assets/css/theme.css';
 
 import zhCNMessages from '@/assets/languages/zh-CN.json';
 import zhTWMessages from '@/assets/languages/zh-TW.json';
@@ -36,7 +38,7 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 app.use(pinia);
 app.use(router);
 app.use(i18n);
-app.use(ElementPlus, {size: 'small', locale: zhCn});
+app.use(ElementPlus, {size: 'default', locale: zhCn});
 
 app.mount('#app');
 

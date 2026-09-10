@@ -1,37 +1,74 @@
 <template>
-    <div class='bgg' :style="{'backgroundImage':'url(' + bgImage + ')'}">
-        <div class="ms-title">野火IM组织架构管理后台</div>
-        <div class="ms-login">
-            <el-form @submit.prevent :model="loginForm" :rules="rules" ref="loginForm" :inline="false"
-                     class="loginForm">
-                <el-form-item prop="username" label="用户名">
-                    <input v-model.trim="loginForm.username" class="input_style user_bg"/>
-                </el-form-item>
-                <el-form-item prop="password" class="ps_style" label="密码">
-                    <input type="password" v-model.trim="loginForm.password" @keyup.enter="submitForm('loginForm')"
-                           class="input_style pass_bg"/>
-                </el-form-item>
-                <div class="login-btn">
-                    <el-button :loading=loading type="primary" @click="submitForm('loginForm')" class="btn_style">
+    <div class="login">
+        <!-- 品牌侧 -->
+        <section class="login-brand">
+            <div class="brand-inner">
+                <img class="brand-logo" src="@/assets/logo.svg" alt=""/>
+                <h1 class="brand-title">{{ $t('login.title') }}</h1>
+                <p class="brand-sub">部门、成员与组织关系的一站式管理后台</p>
+                <ul class="brand-points">
+                    <li v-for="p in points" :key="p">
+                        <el-icon>
+                            <Check/>
+                        </el-icon>
+                        <span>{{ p }}</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="brand-glow"></div>
+        </section>
+
+        <!-- 表单侧 -->
+        <section class="login-panel">
+            <div class="login-card">
+                <h2 class="login-title">{{ $t('login.login') }}</h2>
+                <p class="login-hint">请使用管理员账号登录</p>
+
+                <el-form @submit.prevent :model="loginForm" :rules="rules" ref="loginForm" size="large">
+                    <el-form-item prop="username">
+                        <el-input v-model.trim="loginForm.username" autocomplete="username"
+                                  :placeholder="$t('login.input_user_name_tip')">
+                            <template #prefix>
+                                <el-icon>
+                                    <User/>
+                                </el-icon>
+                            </template>
+                        </el-input>
+                    </el-form-item>
+                    <el-form-item prop="password">
+                        <el-input v-model.trim="loginForm.password" type="password" show-password
+                                  autocomplete="current-password"
+                                  :placeholder="$t('login.input_password_tip')"
+                                  @keyup.enter="submitForm('loginForm')">
+                            <template #prefix>
+                                <el-icon>
+                                    <Lock/>
+                                </el-icon>
+                            </template>
+                        </el-input>
+                    </el-form-item>
+                    <el-button type="primary" size="large" class="login-btn" :loading="loading"
+                               @click="submitForm('loginForm')">
                         {{ $t('login.login') }}
                     </el-button>
-                </div>
-            </el-form>
-        </div>
-        <div class="copyright">wildfirechat.net&copy;rights reserved</div>
-        <div class="blur-mask"></div>
+                </el-form>
+            </div>
+
+            <footer class="login-foot">wildfirechat.net &copy; All rights reserved</footer>
+        </section>
     </div>
 </template>
+
 <script>
 import LoginRequest from "@/model/loginRequest";
-import { useUserStore } from "@/store/stores/userStore";
-import bgImage from "@/assets/images/pic.webp";
+import {useUserStore} from "@/store/stores/userStore";
 
 export default {
+    name: 'Login',
     data: function () {
         return {
-            bgImage,
             loading: false,
+            points: ['部门树与成员的可视化维护', '批量导入，快速搭建组织架构', '组织官方群一键创建与修复'],
             loginForm: {
                 username: '',
                 password: ''
@@ -49,7 +86,7 @@ export default {
 
     setup() {
         const userStore = useUserStore();
-        return { userStore };
+        return {userStore};
     },
 
     methods: {
@@ -75,10 +112,6 @@ export default {
             });
         }
     },
-    mounted() {
-        const htmlDom = document.getElementsByTagName('html')[0];
-        htmlDom.removeAttribute('style');
-    },
     created() {
         if (localStorage.getItem('authToken')) {
             this.$router.replace({path: '/index'});
@@ -88,118 +121,137 @@ export default {
 </script>
 
 <style scoped>
-html {
-    font-size: 14px;
+.login {
+    display: flex;
+    height: 100%;
+    background: var(--wf-surface);
 }
 
-.bgg {
+/* ---------- 品牌侧 ---------- */
+.login-brand {
     position: relative;
-    width: 100%;
-    height: 100%;
-    background-repeat: repeat;
-    /*background-size: 100% 72%;*/
+    display: flex;
+    align-items: center;
+    flex: 1 1 52%;
+    padding: 0 8%;
+    overflow: hidden;
+    background: linear-gradient(150deg, #12203c 0%, #1a2d54 45%, #0e42d2 130%);
+    color: #fff;
 }
 
-.bgg:before {
-    content: '';
-    width: 100%;
-    height: 100%;
-    background: inherit;
-    position: absolute;
-    left: -25px;
-    right: 0;
-    top: -25px;
-    bottom: 0;
-    box-shadow: inset 0 0 0 200px rgba(255, 255, 255, 0.3);
-    filter: blur(10px);
+.brand-inner {
+    position: relative;
+    z-index: 1;
+    max-width: 460px;
 }
 
-.ms-title {
-    position: absolute;
-    top: 60%;
-    width: 100%;
-    margin-top: -230px;
-    text-align: center;
-    font-size: 30px;
-    color: #232323;
+.brand-logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 11px;
+    object-fit: contain;
 }
 
-.ms-login {
+.brand-title {
+    margin: 20px 0 0;
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 44px;
+    letter-spacing: 0.5px;
+}
+
+.brand-sub {
+    margin: 12px 0 0;
+    font-size: 15px;
+    line-height: 24px;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.brand-points {
+    margin: 36px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.brand-points li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.86);
+}
+
+.brand-points .el-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 12px;
+}
+
+/* 柔光，替代旧版那张平铺 + 模糊的背景图 */
+.brand-glow {
     position: absolute;
-    left: 50%;
-    top: 58%;
-    width: 300px;
-    margin: -150px 0 0 -190px;
+    right: -160px;
+    bottom: -200px;
+    width: 560px;
+    height: 560px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(64, 128, 255, 0.55) 0%, transparent 68%);
+}
+
+/* ---------- 表单侧 ---------- */
+.login-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex: 1 1 48%;
     padding: 40px;
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 1px 12px rgba(129, 145, 166, 0.5);
+}
+
+.login-card {
+    width: 100%;
+    max-width: 360px;
+}
+
+.login-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--wf-text-1);
+}
+
+.login-hint {
+    margin: 6px 0 28px;
+    font-size: 13px;
+    color: var(--wf-text-3);
 }
 
 .login-btn {
-    text-align: center;
-}
-
-.login-btn button {
     width: 100%;
-    height: 40px;
-    /* line-height: 40px; */
-    background-color: #232323;
-    color: #fff;
-    border: none;
-    border-radius: 20px;
-    font-size: 16px;
-    cursor: pointer;
+    margin-top: 8px;
+    font-weight: 500;
+    letter-spacing: 2px;
 }
 
-.el-input__inner {
-    border: 1px solid #d0d0d0;
-    height: 30px;
-    line-height: 30px;
-    border-radius: 15px;
-}
-
-.input_style {
-    width: 100%;
-    height: 40px;
-    line-height: 40px;
-    border: 1px solid #d0d0d0;
-    border-radius: 20px;
-    outline: 0;
-    padding-left: 20px;
-    margin-bottom: 15px;
-    color: #5e5e5e;
-}
-
-.user_bg {
-    /* background: url('../../assets/images/login_icon_username.png') 0 0 no-repeat; */
-    background-size: 9%;
-    background-position: 10px 6px;
-}
-
-.pass_bg {
-    /* background: url('../../assets/images/login_icon_password.png') 0 0 no-repeat; */
-    background-size: 9%;
-    background-position: 10px 6px;
-}
-
-.copyright {
-    color: #777c8a;
-    font-size: 12px;
-    position: fixed;
-    bottom: 70px;
-    width: 100%;
-    text-align: center;
-}
-
-.ps_style {
-    position: relative;
-}
-
-.keyImg {
+.login-foot {
     position: absolute;
-    right: 10px;
-    top: 38px;
-    width: 30px;
+    bottom: 24px;
+    font-size: 12px;
+    color: var(--wf-text-4);
+}
+
+/* 窄屏隐藏品牌侧 */
+@media (max-width: 900px) {
+    .login-brand {
+        display: none;
+    }
 }
 </style>

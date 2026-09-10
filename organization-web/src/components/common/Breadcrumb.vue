@@ -1,73 +1,57 @@
 <template>
-    <el-breadcrumb class="breadcrumb" separator=">">
-        <transition-group name="breadcrumb">
-            <el-breadcrumb-item
-                v-for="(item, index) in breadcrumbData"
-                :key="item.path"
-            >
-                <!-- 不可点击项 -->
-                <span v-if="index === breadcrumbData.length - 1" class="no-redirect">{{
-                        item.meta.title
-                    }}</span>
-                <!-- 可点击项 -->
-                <a v-else class="redirect" @click.prevent="onLinkClick(item)">{{
-                        item.meta.title
-                    }}</a>
-            </el-breadcrumb-item>
-        </transition-group>
+    <el-breadcrumb class="breadcrumb" separator="/">
+        <el-breadcrumb-item v-for="(item, index) in breadcrumbData" :key="item.path">
+            <!-- 最后一项是当前页，不可点击 -->
+            <span v-if="index === breadcrumbData.length - 1" class="current">{{ item.meta.title }}</span>
+            <a v-else class="redirect" @click.prevent="onLinkClick(item)">{{ item.meta.title }}</a>
+        </el-breadcrumb-item>
     </el-breadcrumb>
 </template>
 
 <script>
 export default {
+    name: 'Breadcrumb',
     data() {
         return {
-            breadcrumbData: [],
+            breadcrumbData: []
         }
-    },
-    mounted() {
-
     },
     watch: {
         $route: {
             handler() {
-                this.getBreadcrumbData();
+                this.breadcrumbData = this.$route.matched.filter(item => item.meta && item.meta.title);
             },
-            immediate: true,
+            immediate: true
         }
     },
     methods: {
-        getBreadcrumbData() {
-            this.breadcrumbData = this.$route.matched.filter(
-                item => {
-                    return item.meta && item.meta.title;
-                }
-            )
-            console.log('getBreadcrumbData', this.breadcrumbData);
-        },
-
         onLinkClick(item) {
-            console.log(item)
-            this.$router.push(item.path ? item.path : '/')
+            this.$router.push(item.path ? item.path : '/');
         }
     }
 }
 </script>
 
-<style lang="css" scoped>
+<style scoped>
 .breadcrumb {
-    display: inline-block;
-    font-size: 14px;
-    line-height: 60px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    line-height: 1;
 }
 
-.breadcrumb .no-redirect {
-    color: #97a8be;
+.breadcrumb .current {
+    color: var(--wf-text-1);
+    font-weight: 500;
     cursor: text;
 }
 
 .breadcrumb .redirect {
-    color: #666;
-    font-weight: 600;
+    color: var(--wf-text-3);
+    font-weight: 400;
+}
+
+.breadcrumb .redirect:hover {
+    color: var(--wf-brand);
 }
 </style>

@@ -1,32 +1,18 @@
 <template>
-    <div>
-        <div v-if="employee">
-            <p>将 <b>{{ employee.name }}</b> 变更至：</p>
-            <el-input disabled style="margin: 20px 0;">
-                <template #prepend v-if="selectedDepartments && selectedDepartments.length">
-                    <div>
-                        <el-tag
-                            v-for="(depart, index) in selectedDepartments"
-                            :key="index"
-                            closable
-                            @close="onUncheckDepartment(depart)"
-                            type="info">
-                            {{ depart && depart.name }}
-                        </el-tag>
-                    </div>
-                </template>
-                <template #append>
-                    <el-button link type="primary" icon="Edit" @click="showChooseDepartmentDialog = true"></el-button>
-                </template>
-            </el-input>
-            <div style="text-align: right; margin-top: 20px;">
-                <el-button @click="onCancel">取消</el-button>
-                <el-button type="primary" :disabled="selectedDepartments.length === 0" @click="confirmTransfer">确定</el-button>
-            </div>
+    <div v-if="employee">
+        <p class="lead">将 <b>{{ employee.name }}</b> 变更至以下部门：</p>
+
+        <PickerField :items="selectedDepartments" placeholder="点击选择目标部门（可多选）"
+                     @open="showChooseDepartmentDialog = true" @remove="onUncheckDepartment"/>
+
+        <div class="wf-dialog-actions">
+            <el-button @click="onCancel">取消</el-button>
+            <el-button type="primary" :disabled="selectedDepartments.length === 0" @click="confirmTransfer">
+                确定
+            </el-button>
         </div>
 
-        <!-- 选择部门对话框 -->
-        <el-dialog v-model="showChooseDepartmentDialog" append-to-body>
+        <el-dialog v-model="showChooseDepartmentDialog" append-to-body title="选择部门" width="760px">
             <ChooseDepartment
                 :on-cancel="() => showChooseDepartmentDialog = false"
                 :on-confirm="onCheckDepartment"/>
@@ -35,12 +21,13 @@
 </template>
 
 <script>
-import { useOrgStore } from "@/store/stores/orgStore";
+import {useOrgStore} from "@/store/stores/orgStore";
 import ChooseDepartment from "@/components/page/organization/dialog/ChooseDepartment.vue";
+import PickerField from "@/components/common/PickerField.vue";
 
 export default {
     name: "TransferMember",
-    components: { ChooseDepartment },
+    components: {PickerField, ChooseDepartment},
     props: {
         employee: {
             type: Object,
@@ -49,7 +36,8 @@ export default {
         onSuccess: {
             type: Function,
             required: false,
-            default: () => {}
+            default: () => {
+            }
         },
         onCancel: {
             type: Function,
@@ -59,7 +47,7 @@ export default {
 
     setup() {
         const orgStore = useOrgStore();
-        return { orgStore };
+        return {orgStore};
     },
 
     data() {
@@ -101,5 +89,8 @@ export default {
 </script>
 
 <style scoped>
-/* 可以添加样式 */
+.lead {
+    margin-bottom: 12px;
+    color: var(--wf-text-2);
+}
 </style>

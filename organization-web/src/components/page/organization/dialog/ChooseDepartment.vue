@@ -1,52 +1,49 @@
 <template>
-    <div>
-        <p class="title">请选择部门</p>
-        <div class="container">
-            <div class="org-container">
-                <el-input class="input" v-model="input" placeholder="请输入部门名称"></el-input>
-                <el-tree v-if="!input" :data="rootOrganizations"
-                         ref="tree"
-                         :expand-on-click-node="false"
-                         show-checkbox
-                         node-key="id"
-                         check-on-click-node
-                         @check-change="onCheckChange"
-                         check-strictly
-                         :render-after-expand='false'
-                         lazy
-                         :load="loadNode"
-                         @node-click="handleNodeClick">
-                </el-tree>
-            </div>
-            <div class="checked-org-container">
-                <div style="width: 100%; display: flex; justify-content: space-between; align-items: center">
-                    <span>{{ '已选择： ' + checkedDepartments.length + '个部门' }}</span>
-                    <el-button link type="primary" @click="resetChecked">清空</el-button>
+    <div class="pk-dialog">
+        <div class="pk-panes">
+            <div class="pk-pane">
+                <div class="pk-pane-head">
+                    <span class="pk-pane-title">组织架构</span>
                 </div>
-                <el-table
-                    ref="multipleTable"
-                    :data="checkedDepartments"
-                    empty-text="未选择任何部门"
-                    tooltip-effect="dark"
-                    style="width: 100%"
-                    :show-header="false"
-                    :cell-style="{padding: '0', height: '50px'}">
-                    <el-table-column
-                        prop="name"
-                        label="部门名"
-                        width="240">
-                    </el-table-column>
-                    <el-table-column align="right">
-                        <template v-slot="scope">
-                            <el-button class="f-btn" @click="unCheckDepartment(scope.row)" link type="primary" icon="Close" size="small"></el-button>
-                        </template>
-                    </el-table-column>
-                </el-table>
+                <el-scrollbar class="pk-pane-body">
+                    <el-tree :data="rootOrganizations"
+                             ref="tree"
+                             :expand-on-click-node="false"
+                             show-checkbox
+                             node-key="id"
+                             check-on-click-node
+                             @check-change="onCheckChange"
+                             check-strictly
+                             :render-after-expand="false"
+                             lazy
+                             :load="loadNode"
+                             empty-text="暂无部门数据"
+                             @node-click="handleNodeClick"/>
+                </el-scrollbar>
+            </div>
+
+            <div class="pk-pane">
+                <div class="pk-pane-head">
+                    <span class="pk-pane-title">已选 {{ checkedDepartments.length }} 个部门</span>
+                    <el-button link type="primary" :disabled="!checkedDepartments.length" @click="resetChecked">
+                        清空
+                    </el-button>
+                </div>
+                <el-scrollbar class="pk-pane-body">
+                    <p v-if="!checkedDepartments.length" class="pk-empty">未选择任何部门</p>
+                    <div v-for="depart in checkedDepartments" :key="depart.id" class="pk-row">
+                        <span class="wf-ellipsis">{{ depart.name }}</span>
+                        <el-icon class="pk-remove" @click="unCheckDepartment(depart)">
+                            <Close/>
+                        </el-icon>
+                    </div>
+                </el-scrollbar>
             </div>
         </div>
-        <div class="action-container">
+
+        <div class="wf-dialog-actions">
             <el-button @click="_onCancel">取消</el-button>
-            <el-button type="primary" @click="_onConfirm">确定</el-button>
+            <el-button type="primary" :disabled="!checkedDepartments.length" @click="_onConfirm">确定</el-button>
         </div>
     </div>
 </template>
@@ -78,7 +75,6 @@ export default {
 
     data() {
         return {
-            input: '',
             checkedDepartments: [],
         }
     },
@@ -137,41 +133,3 @@ export default {
 }
 </script>
 
-<style scoped>
-.title {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    font-size: 16px;
-    color: #1f2329;
-}
-
-.container {
-    display: flex;
-    margin: 20px;
-}
-
-.org-container {
-    width: 50%;
-    padding: 20px 20px 20px 10px;
-    border-right: 1px solid lightgrey;
-    height: 500px;
-    overflow-y: auto;
-}
-
-.org-container .input {
-    margin-bottom: 10px;
-    padding-left: 10px;
-}
-
-.checked-org-container {
-    width: 50%;
-    padding: 20px;
-}
-
-.action-container {
-    display: flex;
-    justify-content: flex-end;
-    margin-right: 20px;
-}
-</style>

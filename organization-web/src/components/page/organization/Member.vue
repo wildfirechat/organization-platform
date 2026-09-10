@@ -1,218 +1,289 @@
 <template>
-    <el-container style="height: 100%">
-        <el-aside style="border-right: 1px solid #e6e6e6; padding-right: 20px">
-            <el-input v-if="false" v-model="input" placeholder="请输入姓名、邮箱或手机号"></el-input>
-            <el-tree v-if="!input"
-                     :data="rootOrganizations"
-                     ref="tree"
-                     :expand-on-click-node="true"
-                     :props="defaultProps"
-                     :render-after-expand='false'
-                     lazy
-                     :load="loadNode"
-                     node-key="id"
-                     @node-click="handleNodeClick"
-                     @node-expand="handleNodeExpand">
-                <template #default="{ node }">
-                <span class="custom-tree-node">
-                    <span>{{ node.label }}({{ node.data.memberCount || 0 }})</span>
-                    <el-dropdown trigger="click" @command="handleDepartmentCommand">
-                        <span @click.stop>
-                            <el-icon><MoreFilled/></el-icon>
-                        </span>
-                        <template #dropdown>
-                        <el-dropdown-menu>
-                            <el-dropdown-item v-if="!node.data.groupId"
-                                              :disabled="!node.data.managerId"
-                                              :command="{ c: 'create-org-group', node: node, depart: node.data }">创建组织官方群</el-dropdown-item>
-                            <el-dropdown-item v-if="node.data.groupId"
-                                              :command="{ c: 'dismiss-org-group', node: node, depart: node.data }">解散组织官方群</el-dropdown-item>
-                            <el-dropdown-item v-if="node.data.groupId"
-                                              :command="{ c: 'repair-org-group', node: node, depart: node.data }">修复组织官方群</el-dropdown-item>
-                            <el-dropdown-item
-                                :command="{ c: 'set-manager', node: node, depart: node.data }">{{ node.data.managerId ? '修改组织领导' : '设置组织领导' }}</el-dropdown-item>
-                            <el-dropdown-item
-                                :command="{ c: 'edit', node: node, depart: node.data }">编辑部门</el-dropdown-item>
-                            <el-dropdown-item
-                                :command="{ c: 'add-sub', node: node, depart: node.data }">添加子部门</el-dropdown-item>
-                            <el-dropdown-item v-if="canMoveUp(node)"
-                                :command="{ c: 'move-up', node: node, depart: node.data }">上移</el-dropdown-item>
-                            <el-dropdown-item v-if="canMoveUp(node)"
-                                :command="{ c: 'move-to-top', node: node, depart: node.data }">移动到顶部</el-dropdown-item>
-                            <el-dropdown-item v-if="canMoveDown(node)"
-                                :command="{ c: 'move-down', node: node, depart: node.data }">下移</el-dropdown-item>
-                            <el-dropdown-item v-if="canMoveDown(node)"
-                                :command="{ c: 'move-to-bottom', node: node, depart: node.data }">移动到底部</el-dropdown-item>
-                            <el-dropdown-item style="color: red"
-                                              :command="{ c: 'remove', node: node, depart: node.data }">删除部门</el-dropdown-item>
-                        </el-dropdown-menu>
-                        </template>
-                    </el-dropdown>
-                </span>
-                </template>
-            </el-tree>
-            <div v-else>
-                TODO search result
-            </div>
-        </el-aside>
-        <el-container v-if="currentOrg" style="flex-direction: column;">
-            <el-header>
-                <div
-                    style="display: flex; flex-direction: row; align-items: center; justify-content: center; height: 100%">
-                    <div v-if="currentOrg" style="flex: 1 1 auto">
-                        <p> {{ currentOrg.name }}</p>
-                        <p v-if="currentOrg.managerName" style="font-size: 12px"> {{
-                                "部门负责人: " + currentOrg.managerName
-                            }}</p>
-                    </div>
-                    <el-button type="primary" icon="Plus" v-if="rootOrganizations.length > 0"
-                               @click="showAddDepartmentMemberDialog = true">添加成员
-                    </el-button>
-                    <el-button type="primary" v-if="rootOrganizations.length === 0"
-                               @click="importMember">批量导入
-                    </el-button>
-                </div>
-            </el-header>
-            <el-main style="padding: 0; overflow-y: auto; flex: 1;">
-                <el-table ref="multipleTable" :data="currentOrgEmployees" empty-text="当前公司或部门没有直属员工" tooltip-effect="dark"
-                          type="default" style="width: 100%" :cell-style="{ padding: '0', height: '50px' }" @row-click="handleClickEmployee">
-                    <el-table-column type="default" width="55">
-                    </el-table-column>
-                    <el-table-column prop="name" label="姓名" width="120">
-                    </el-table-column>
-                    <el-table-column prop="title" label="职位" width="120">
-                    </el-table-column>
-                    <el-table-column prop="mobile" label="手机号" show-overflow-tooltip>
-                    </el-table-column>
-                    <el-table-column>
-                        <template v-slot="scope">
-                            <el-button class="f-btn" @click.stop="handleTransferDepartment(scope.row)" link type="primary"
-                                       size="small">变更部门
-                            </el-button>
-                            <el-button class="f-btn" @click.stop="handleDeleteEmployee(scope.row)" link type="primary"
-                                       size="small">操作离职
-                            </el-button>
-                            <el-button class="f-btn" @click.stop="handleUpdatePassword(scope.row)" link type="primary"
-                                       size="small">修改密码
-                            </el-button>
-                        </template>
-                    </el-table-column>
-                </el-table>
-            </el-main>
-            <el-card v-if="currentEmployeeDetail" style="margin-top: 0; flex-shrink: 0;">
-                <template #header>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>用户信息</span>
-                        <el-button type="primary" size="small" @click="showUpdateEmployeeDialog = true">更新用户信息</el-button>
-                    </div>
-                </template>
-                <el-descriptions :column="3" border size="small">
-                    <el-descriptions-item label="用户ID">{{ currentEmployeeDetail.employeeId }}</el-descriptions-item>
-                    <el-descriptions-item label="姓名">{{ currentEmployeeDetail.name }}</el-descriptions-item>
-                    <el-descriptions-item label="职位">{{ currentEmployeeDetail.title }}</el-descriptions-item>
-                    <el-descriptions-item label="级别">{{ currentEmployeeDetail.level }}</el-descriptions-item>
-                    <el-descriptions-item label="手机号">{{ currentEmployeeDetail.mobile }}</el-descriptions-item>
-                    <el-descriptions-item label="邮箱">{{ currentEmployeeDetail.email }}</el-descriptions-item>
-                    <el-descriptions-item label="分机号">{{ currentEmployeeDetail.ext }}</el-descriptions-item>
-                    <el-descriptions-item label="办公地点">{{ currentEmployeeDetail.office }}</el-descriptions-item>
-                    <el-descriptions-item label="城市">{{ currentEmployeeDetail.city }}</el-descriptions-item>
-                    <el-descriptions-item label="工号">{{ currentEmployeeDetail.jobNumber }}</el-descriptions-item>
-                    <el-descriptions-item label="入职时间">{{ currentEmployeeDetail.joinTime }}</el-descriptions-item>
-                    <el-descriptions-item label="排序">{{ currentEmployeeDetail.sort }}</el-descriptions-item>
-                    <el-descriptions-item label="类型">{{ currentEmployeeDetail.type }}</el-descriptions-item>
-                    <el-descriptions-item label="性别">{{ currentEmployeeDetail.gender === 1 ? '男' : currentEmployeeDetail.gender === 2 ? '女' : '未知' }}</el-descriptions-item>
-                    <el-descriptions-item label="头像URL" :span="2">{{ currentEmployeeDetail.portraitUrl }}</el-descriptions-item>
-                </el-descriptions>
-            </el-card>
-        </el-container>
-        <el-container v-else>
-            <el-header>
-                <div
-                    style="display: flex; flex-direction: row; align-items: center; justify-content: center; height: 100%">
-                    请选择部门
-                </div>
-            </el-header>
+    <div class="member-page">
+        <PageHeader v-if="showHeader" title="成员与部门"
+                    description="维护部门树与部门下的直属成员，支持组织官方群的创建与修复">
+            <template #extra>
+                <el-button :icon="Upload" @click="importMember">批量导入</el-button>
+            </template>
+        </PageHeader>
 
-        </el-container>
-        <el-drawer title="操作离职" v-model="showDeleteEmployeeDrawer" direction="rtl"
-                   :before-close="onDeleteEmployee">
-            <DeleteEmployee :employee="currentEmployee" :on-delete-employee="onDeleteEmployee"/>
-        </el-drawer>
+        <div class="workspace">
+            <!-- 左侧：部门树 -->
+            <aside class="org-tree">
+                <div class="pane-head">
+                    <span class="pane-title">组织架构</span>
+                </div>
+                <el-scrollbar class="tree-scroll">
+                    <el-tree :data="rootOrganizations"
+                             ref="tree"
+                             :expand-on-click-node="true"
+                             :props="defaultProps"
+                             :render-after-expand="false"
+                             lazy
+                             :load="loadNode"
+                             node-key="id"
+                             highlight-current
+                             empty-text="暂无部门数据"
+                             @node-click="handleNodeClick"
+                             @node-expand="handleNodeExpand">
+                        <template #default="{ node }">
+                            <span class="custom-tree-node">
+                                <span class="node-label wf-ellipsis">{{ node.label }}</span>
+                                <span class="node-count wf-num">{{ node.data.memberCount || 0 }}</span>
+                                <el-dropdown class="node-actions" trigger="click"
+                                             @command="handleDepartmentCommand">
+                                    <span class="node-more" @click.stop>
+                                        <el-icon><MoreFilled/></el-icon>
+                                    </span>
+                                    <template #dropdown>
+                                        <el-dropdown-menu>
+                                            <el-dropdown-item v-if="!node.data.groupId"
+                                                              :disabled="!node.data.managerId"
+                                                              :command="{ c: 'create-org-group', node: node, depart: node.data }">
+                                                创建组织官方群
+                                            </el-dropdown-item>
+                                            <el-dropdown-item v-if="node.data.groupId"
+                                                              :command="{ c: 'dismiss-org-group', node: node, depart: node.data }">
+                                                解散组织官方群
+                                            </el-dropdown-item>
+                                            <el-dropdown-item v-if="node.data.groupId"
+                                                              :command="{ c: 'repair-org-group', node: node, depart: node.data }">
+                                                修复组织官方群
+                                            </el-dropdown-item>
+                                            <el-dropdown-item divided
+                                                              :command="{ c: 'set-manager', node: node, depart: node.data }">
+                                                {{ node.data.managerId ? '修改组织领导' : '设置组织领导' }}
+                                            </el-dropdown-item>
+                                            <el-dropdown-item :command="{ c: 'edit', node: node, depart: node.data }">
+                                                编辑部门
+                                            </el-dropdown-item>
+                                            <el-dropdown-item :command="{ c: 'add-sub', node: node, depart: node.data }">
+                                                添加子部门
+                                            </el-dropdown-item>
+                                            <el-dropdown-item v-if="canMoveUp(node)" divided
+                                                              :command="{ c: 'move-up', node: node, depart: node.data }">
+                                                上移
+                                            </el-dropdown-item>
+                                            <el-dropdown-item v-if="canMoveUp(node)"
+                                                              :command="{ c: 'move-to-top', node: node, depart: node.data }">
+                                                移动到顶部
+                                            </el-dropdown-item>
+                                            <el-dropdown-item v-if="canMoveDown(node)"
+                                                              :command="{ c: 'move-down', node: node, depart: node.data }">
+                                                下移
+                                            </el-dropdown-item>
+                                            <el-dropdown-item v-if="canMoveDown(node)"
+                                                              :command="{ c: 'move-to-bottom', node: node, depart: node.data }">
+                                                移动到底部
+                                            </el-dropdown-item>
+                                            <el-dropdown-item divided class="danger-item"
+                                                              :command="{ c: 'remove', node: node, depart: node.data }">
+                                                删除部门
+                                            </el-dropdown-item>
+                                        </el-dropdown-menu>
+                                    </template>
+                                </el-dropdown>
+                            </span>
+                        </template>
+                    </el-tree>
+                </el-scrollbar>
+            </aside>
 
-        <el-dialog v-model="showUpdateDepartmentDialog"
+            <!-- 右侧：部门成员 -->
+            <section class="org-detail">
+                <template v-if="currentOrg">
+                    <div class="pane-head detail-head">
+                        <div class="detail-info">
+                            <div class="detail-title">
+                                <span class="detail-name wf-ellipsis">{{ currentOrg.name }}</span>
+                                <el-tag size="small" type="info" effect="plain" round>
+                                    {{ (currentOrg.memberCount || 0) + ' 人' }}
+                                </el-tag>
+                                <el-tag v-if="currentOrg.groupId" size="small" type="success" effect="light" round>
+                                    已建官方群
+                                </el-tag>
+                            </div>
+                            <div v-if="currentOrg.managerName" class="detail-sub">
+                                部门负责人：{{ currentOrg.managerName }}
+                            </div>
+                        </div>
+                        <el-button type="primary" :icon="Plus" @click="showAddDepartmentMemberDialog = true">
+                            添加成员
+                        </el-button>
+                    </div>
+
+                    <el-table ref="multipleTable" v-loading="loadingEmployees" :data="currentOrgEmployees"
+                              empty-text="当前公司或部门没有直属员工" class="member-table" height="100%"
+                              @row-click="handleClickEmployee">
+                        <el-table-column label="成员" min-width="200">
+                            <template v-slot="scope">
+                                <div class="member-cell">
+                                    <el-avatar :size="30" shape="circle" :src="scope.row.portraitUrl">
+                                        {{ (scope.row.name || '').slice(0, 1) }}
+                                    </el-avatar>
+                                    <div class="member-meta">
+                                        <span class="member-name wf-ellipsis">{{ scope.row.name }}</span>
+                                        <span class="member-id wf-ellipsis wf-muted">{{ scope.row.employeeId }}</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="title" label="职位" min-width="120">
+                            <template v-slot="scope">
+                                <span v-if="scope.row.title">{{ scope.row.title }}</span>
+                                <span v-else class="wf-muted">—</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="mobile" label="手机号" min-width="130" show-overflow-tooltip>
+                            <template v-slot="scope">
+                                <span v-if="scope.row.mobile" class="wf-num">{{ scope.row.mobile }}</span>
+                                <span v-else class="wf-muted">—</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip>
+                            <template v-slot="scope">
+                                <span v-if="scope.row.email">{{ scope.row.email }}</span>
+                                <span v-else class="wf-muted">—</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="操作" width="240" align="right" fixed="right">
+                            <template v-slot="scope">
+                                <el-button @click.stop="handleTransferDepartment(scope.row)" link type="primary"
+                                           size="small">变更部门
+                                </el-button>
+                                <el-button @click.stop="handleUpdatePassword(scope.row)" link type="primary"
+                                           size="small">修改密码
+                                </el-button>
+                                <el-button @click.stop="handleDeleteEmployee(scope.row)" link type="danger"
+                                           size="small">操作离职
+                                </el-button>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </template>
+
+                <el-empty v-else-if="rootOrganizations.length > 0" description="请在左侧选择一个部门" :image-size="90"/>
+
+                <el-empty v-else description="还没有任何部门数据，先批量导入组织架构吧" :image-size="90">
+                    <el-button type="primary" :icon="Upload" @click="importMember">批量导入</el-button>
+                </el-empty>
+            </section>
+        </div>
+
+        <!-- 成员详情 -->
+        <el-dialog title="成员信息" v-model="showEmployeeDetailDialog" width="560px" class="profile-dialog">
+            <template v-if="currentEmployeeDetail">
+                <div class="profile">
+                    <el-avatar :size="56" :src="currentEmployeeDetail.portraitUrl">
+                        {{ (currentEmployeeDetail.name || '').slice(0, 1) }}
+                    </el-avatar>
+                    <div class="profile-meta">
+                        <p class="profile-name">{{ currentEmployeeDetail.name }}</p>
+                        <p class="profile-sub">{{ currentEmployeeDetail.title || '未填写职位' }}</p>
+                    </div>
+                </div>
+                <el-scrollbar max-height="46vh">
+                    <el-descriptions :column="1" border size="small" class="profile-desc">
+                        <el-descriptions-item label="用户ID">{{ text(currentEmployeeDetail.employeeId) }}</el-descriptions-item>
+                        <el-descriptions-item label="工号">{{ text(currentEmployeeDetail.jobNumber) }}</el-descriptions-item>
+                        <el-descriptions-item label="级别">{{ text(currentEmployeeDetail.level) }}</el-descriptions-item>
+                        <el-descriptions-item label="手机号">{{ text(currentEmployeeDetail.mobile) }}</el-descriptions-item>
+                        <el-descriptions-item label="邮箱">{{ text(currentEmployeeDetail.email) }}</el-descriptions-item>
+                        <el-descriptions-item label="分机号">{{ text(currentEmployeeDetail.ext) }}</el-descriptions-item>
+                        <el-descriptions-item label="办公地点">{{ text(currentEmployeeDetail.office) }}</el-descriptions-item>
+                        <el-descriptions-item label="城市">{{ text(currentEmployeeDetail.city) }}</el-descriptions-item>
+                        <el-descriptions-item label="性别">{{ genderText(currentEmployeeDetail.gender) }}</el-descriptions-item>
+                        <el-descriptions-item label="入职时间">{{ text(currentEmployeeDetail.joinTime) }}</el-descriptions-item>
+                        <el-descriptions-item label="排序">{{ text(currentEmployeeDetail.sort) }}</el-descriptions-item>
+                        <el-descriptions-item label="类型">{{ text(currentEmployeeDetail.type) }}</el-descriptions-item>
+                        <el-descriptions-item label="头像URL">
+                            <span class="wf-ellipsis profile-url">{{ text(currentEmployeeDetail.portraitUrl) }}</span>
+                        </el-descriptions-item>
+                    </el-descriptions>
+                </el-scrollbar>
+            </template>
+            <template #footer>
+                <div class="wf-actions">
+                    <el-button @click="showEmployeeDetailDialog = false">关闭</el-button>
+                    <el-button type="primary" @click="showUpdateEmployeeDialog = true">更新用户信息</el-button>
+                </div>
+            </template>
+        </el-dialog>
+
+        <el-dialog title="操作离职" v-model="showDeleteEmployeeDialog" width="440px" :close-on-click-modal="false">
+            <DeleteEmployee v-if="showDeleteEmployeeDialog" :employee="currentEmployee"
+                            :on-delete-employee="onDeleteEmployee"/>
+        </el-dialog>
+
+        <el-dialog title="编辑部门" v-model="showUpdateDepartmentDialog" width="520px"
                    :before-close="() => showUpdateDepartmentDialog = false">
-            <UpdateDepartment v-if="showUpdateDepartmentDialog" :current-department="targetDepartment" :on-update-department="onUpdateDepartment"/>
+            <UpdateDepartment v-if="showUpdateDepartmentDialog" :current-department="targetDepartment"
+                              :on-update-department="onUpdateDepartment"/>
         </el-dialog>
 
-        <el-dialog v-model="showAddSubDepartmentDialog"
+        <el-dialog title="新建部门" v-model="showAddSubDepartmentDialog" width="520px"
                    :before-close="() => showAddSubDepartmentDialog = false">
-            <AddSubDepartment
-                v-if="showAddSubDepartmentDialog"
-                :parent-department="currentOrg" :on-add-department="onAddDepartment"/>
+            <AddSubDepartment v-if="showAddSubDepartmentDialog" :parent-department="currentOrg"
+                              :on-add-department="onAddDepartment"/>
         </el-dialog>
 
-        <el-dialog v-model="showAddDepartmentMemberDialog" :close-on-click-modal="false"
+        <el-dialog title="添加成员" v-model="showAddDepartmentMemberDialog" width="720px" :close-on-click-modal="false"
                    :before-close="() => { showAddDepartmentMemberDialog = false }">
             <AddDepartmentMember v-if="showAddDepartmentMemberDialog"
-                                 :on-cancel="() => showAddDepartmentMemberDialog = false"/>
+                                 :on-cancel="() => showAddDepartmentMemberDialog = false"
+                                 :on-success="onAddMemberSuccess"/>
         </el-dialog>
 
-        <el-dialog title="变更部门" v-model="showTransferDepartmentDialog" :close-on-click-modal="false"
+        <el-dialog title="变更部门" v-model="showTransferDepartmentDialog" width="520px" :close-on-click-modal="false"
                    :before-close="() => { showTransferDepartmentDialog = false }">
-            <TransferMember
-                v-if="showTransferDepartmentDialog"
-                :employee="employeeToTransfer"
-                :on-cancel="() => showTransferDepartmentDialog = false"
-                :on-success="onTransferSuccess"/>
+            <TransferMember v-if="showTransferDepartmentDialog" :employee="employeeToTransfer"
+                            :on-cancel="() => showTransferDepartmentDialog = false"
+                            :on-success="onTransferSuccess"/>
         </el-dialog>
 
-        <el-dialog title="修改密码" v-model="showUpdatePasswordDialog" :close-on-click-modal="false"
+        <el-dialog title="修改密码" v-model="showUpdatePasswordDialog" width="460px" :close-on-click-modal="false"
                    :before-close="() => { showUpdatePasswordDialog = false }">
-            <UpdateEmployeePwd
-                v-if="showUpdatePasswordDialog"
-                :employee="employeeToUpdatePassword"
-                :on-cancel="() => showUpdatePasswordDialog = false"
-                :on-success="onUpdatePasswordSuccess"/>
+            <UpdateEmployeePwd v-if="showUpdatePasswordDialog" :employee="employeeToUpdatePassword"
+                               :on-cancel="() => showUpdatePasswordDialog = false"
+                               :on-success="onUpdatePasswordSuccess"/>
         </el-dialog>
 
-        <el-dialog title="更新用户信息" v-model="showUpdateEmployeeDialog" :close-on-click-modal="false"
+        <el-dialog title="更新用户信息" v-model="showUpdateEmployeeDialog" width="720px" :close-on-click-modal="false"
                    :before-close="() => { showUpdateEmployeeDialog = false }">
-            <UpdateEmployee
-                v-if="showUpdateEmployeeDialog"
-                :employee="currentEmployeeDetail"
-                :on-cancel="() => showUpdateEmployeeDialog = false"
-                :on-success="onUpdateEmployeeSuccess"/>
+            <UpdateEmployee v-if="showUpdateEmployeeDialog" :employee="currentEmployeeDetail"
+                            :on-cancel="() => showUpdateEmployeeDialog = false"
+                            :on-success="onUpdateEmployeeSuccess"/>
         </el-dialog>
 
-        <el-dialog :title="managerTargetDepartment && managerTargetDepartment.managerId ? '修改组织领导' : '设置组织领导'" v-model="showSetManagerDialog" :close-on-click-modal="false"
-                   :before-close="() => { showSetManagerDialog = false }">
-            <el-form label-position="right">
+        <el-dialog
+            :title="managerTargetDepartment && managerTargetDepartment.managerId ? '修改组织领导' : '设置组织领导'"
+            v-model="showSetManagerDialog" width="460px" :close-on-click-modal="false"
+            :before-close="() => { showSetManagerDialog = false }">
+            <el-form label-position="top">
                 <el-form-item label="部门领导">
                     <el-select v-model="selectedManagerId" filterable placeholder="请选择部门领导" style="width: 100%">
-                        <el-option
-                            v-for="emp in managerCandidates"
-                            :key="emp.employeeId"
-                            :label="emp.name"
-                            :value="emp.employeeId">
-                        </el-option>
+                        <el-option v-for="emp in managerCandidates" :key="emp.employeeId" :label="emp.name"
+                                   :value="emp.employeeId"/>
                     </el-select>
                 </el-form-item>
             </el-form>
             <template #footer>
-                <div style="display: flex; justify-content: flex-end">
+                <div class="wf-actions">
                     <el-button @click="showSetManagerDialog = false">取消</el-button>
                     <el-button type="primary" :disabled="!selectedManagerId" @click="confirmSetManager">确定</el-button>
                 </div>
             </template>
         </el-dialog>
-    </el-container>
+    </div>
 </template>
 
 <script>
 import {useOrgStore} from "@/store/stores/orgStore";
+import {Plus, Upload} from '@element-plus/icons-vue';
+import PageHeader from "@/components/common/PageHeader.vue";
 import AddSubDepartment from "@/components/page/organization/dialog/AddSubDepartment.vue";
 import AddDepartmentMember from "@/components/page/organization/dialog/AddDepartmentMember.vue";
-import DeleteEmployee from "@/components/page/organization/drawer/DeleteEmployee.vue";
+import DeleteEmployee from "@/components/page/organization/dialog/DeleteEmployee.vue";
 import UpdateDepartment from "@/components/page/organization/dialog/UpdateDepartment.vue";
 import TransferMember from "@/components/page/organization/TransferMember.vue";
 import UpdateEmployeePwd from "@/components/page/organization/UpdateEmployeePwd.vue";
@@ -222,7 +293,15 @@ import api from "@/api/api";
 
 export default {
     name: "Member",
+    props: {
+        // 嵌在 DepartmentAndMember 的标签页里时，由外层统一渲染页面标题
+        showHeader: {
+            type: Boolean,
+            default: true
+        }
+    },
     components: {
+        PageHeader,
         UpdateDepartment,
         DeleteEmployee,
         AddDepartmentMember,
@@ -233,19 +312,20 @@ export default {
     },
     data() {
         return {
+            Plus,
+            Upload,
             defaultProps: {
                 children: 'children',
                 label: 'label',
                 id: 'id',
                 isLeaf: 'leaf',
             },
-            input: '',
             currentOrg: null,
             currentEmployee: null,
             currentOrgEmployees: [],
-            multipleSelection: [],
+            loadingEmployees: false,
 
-            showDeleteEmployeeDrawer: false,
+            showDeleteEmployeeDialog: false,
             showUpdateDepartmentDialog: false,
             showAddSubDepartmentDialog: false,
             showAddDepartmentMemberDialog: false,
@@ -261,6 +341,7 @@ export default {
             employeeToUpdatePassword: null,
 
             currentEmployeeDetail: null,
+            showEmployeeDetailDialog: false,
             showUpdateEmployeeDialog: false,
 
             showSetManagerDialog: false,
@@ -280,6 +361,7 @@ export default {
             handler() {
                 this.currentOrgEmployees.length = 0;
                 this.currentEmployeeDetail = null;
+                this.showEmployeeDetailDialog = false;
             },
         }
     },
@@ -292,26 +374,52 @@ export default {
     activated() {
         if (this.rootOrganizations.length === 0) {
             this.orgStore.getRootOrganizationsWithChildren()
-                .then(() => {
-                    this.currentOrg = this.rootOrganizations[0];
-                })
+                .then(() => this.selectDefaultOrg())
                 .catch(e => {
                     console.error('getRootOrganizationsWithChildren error', e);
                 })
+        } else if (!this.currentOrg) {
+            this.selectDefaultOrg();
         }
     },
 
     methods: {
+        // 进入页面时默认选中第一个根部门并加载其成员，避免右侧一片空白
+        selectDefaultOrg() {
+            const first = this.rootOrganizations[0];
+            if (!first) {
+                return;
+            }
+            this.handleNodeClick(first);
+            this.$nextTick(() => {
+                this.$refs.tree && this.$refs.tree.setCurrentKey(first.id);
+            });
+        },
+        text(value) {
+            return (value === null || value === undefined || value === '') ? '—' : value;
+        },
+        genderText(gender) {
+            return gender === 1 ? '男' : gender === 2 ? '女' : '未知';
+        },
         async handleNodeClick(data) {
             console.log('node click', data)
             this.currentOrg = data;
             if (data.id) {
-                let result = await api.queryOrganizationWithChildren(data.id);
-                let orgWC = Object.assign(new OrganizationWithChildren(), result);
-                data._orgWithChildren = orgWC;
-                this.currentOrgEmployees.length = 0;
-                if (orgWC.employees) {
-                    this.currentOrgEmployees.push(...orgWC.employees);
+                this.loadingEmployees = true;
+                try {
+                    let result = await api.queryOrganizationWithChildren(data.id);
+                    let orgWC = Object.assign(new OrganizationWithChildren(), result);
+                    data._orgWithChildren = orgWC;
+                    // 同步部门自身字段（如 memberCount），让树上的人数徽标随成员增删实时更新
+                    if (orgWC.organization) {
+                        Object.assign(data, orgWC.organization);
+                    }
+                    this.currentOrgEmployees.length = 0;
+                    if (orgWC.employees) {
+                        this.currentOrgEmployees.push(...orgWC.employees);
+                    }
+                } finally {
+                    this.loadingEmployees = false;
                 }
                 if (data.managerId && !data.managerName) {
                     api.queryEmployee(data.managerId).then(emp => {
@@ -328,7 +436,6 @@ export default {
         async loadNode(node, resolve) {
             console.log('to load data', node)
             let data = node.data;
-            // node.childNodes = [];
             if ((!data._orgWithChildren && data.id) || data._force) {
                 await this.orgStore.queryOrganizationWithChildren(data)
                 resolve(data.children);
@@ -336,21 +443,36 @@ export default {
                 resolve(data.children ? data.children : data);
             }
         },
-        handleSelectionChange(val) {
-            this.multipleSelection = val;
-        },
         handleClickEmployee(data) {
             console.log('click employee', data)
             this.currentEmployeeDetail = data;
+            this.showEmployeeDetailDialog = true;
         },
-        onUpdateEmployeeSuccess() {
-            this.showUpdateEmployeeDialog = false;
+        // 增删成员后统一走这里：重新拉取当前部门，刷新右侧成员列表和树上的人数
+        reloadCurrentOrg() {
             if (this.currentOrg) {
                 this.handleNodeClick(this.currentOrg);
             }
         },
+        onAddMemberSuccess() {
+            this.showAddDepartmentMemberDialog = false;
+            this.reloadCurrentOrg();
+        },
+        onUpdateEmployeeSuccess() {
+            this.showUpdateEmployeeDialog = false;
+            const employeeId = this.currentEmployeeDetail && this.currentEmployeeDetail.employeeId;
+            if (this.currentOrg) {
+                this.handleNodeClick(this.currentOrg).then(() => {
+                    // 列表数据被整体替换了，详情抽屉里要换成新对象，否则显示的还是旧值
+                    const updated = this.currentOrgEmployees.find(e => e.employeeId === employeeId);
+                    if (updated) {
+                        this.currentEmployeeDetail = updated;
+                    }
+                });
+            }
+        },
         handleDeleteEmployee(data) {
-            this.showDeleteEmployeeDrawer = true;
+            this.showDeleteEmployeeDialog = true;
             this.currentEmployee = data;
         },
         handleTransferDepartment(data) {
@@ -359,9 +481,7 @@ export default {
         },
         onTransferSuccess() {
             this.showTransferDepartmentDialog = false;
-            if (this.currentOrg) {
-                this.orgStore.queryOrganizationWithChildren(this.currentOrg);
-            }
+            this.reloadCurrentOrg();
         },
         handleUpdatePassword(data) {
             this.employeeToUpdatePassword = data;
@@ -511,9 +631,9 @@ export default {
             this.showAddSubDepartmentDialog = false;
         },
         onDeleteEmployee(success) {
-            this.showDeleteEmployeeDrawer = false;
+            this.showDeleteEmployeeDialog = false;
             if (success) {
-                this.orgStore.queryOrganizationWithChildren(this.currentOrg);
+                this.reloadCurrentOrg();
             }
         },
         async confirmSetManager() {
@@ -551,24 +671,227 @@ export default {
 </script>
 
 <style scoped>
+.member-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+/* 树 + 成员表放在同一张卡片里，用一条分隔线区分，而不是各自加边框 */
+.workspace {
+    display: flex;
+    flex: 1;
+    min-height: 480px;
+    overflow: hidden;
+    background: var(--wf-surface);
+    border-radius: var(--wf-radius-lg);
+    box-shadow: var(--wf-shadow-sm);
+}
+
+.pane-head {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 56px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--wf-border-light);
+}
+
+.pane-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--wf-text-1);
+}
+
+/* ---------- 左侧部门树 ---------- */
+.org-tree {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    width: 280px;
+    border-right: 1px solid var(--wf-border-light);
+}
+
+.tree-scroll {
+    flex: 1;
+    min-height: 0;
+    padding: 8px;
+}
+
 .custom-tree-node {
-    flex: 1 1 auto;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 4px;
     font-size: 14px;
-    padding-right: 8px;
 }
 
-:deep(.el-tree-node__content) {
-    height: 50px;
+.node-label {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
-.f-btn {
-    display: none;
+.node-count {
+    flex-shrink: 0;
+    padding: 0 6px;
+    border-radius: 9px;
+    background: var(--wf-fill);
+    color: var(--wf-text-3);
+    font-size: 12px;
+    line-height: 18px;
 }
 
-.el-table__body tr:hover .f-btn {
-    display: inline;
+/* 操作入口默认隐藏，悬停或选中时才出现，避免整棵树被“⋯”铺满 */
+.node-actions {
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.org-tree :deep(.el-tree-node__content:hover) .node-actions,
+.org-tree :deep(.el-tree-node.is-current > .el-tree-node__content) .node-actions {
+    opacity: 1;
+}
+
+.node-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--wf-radius-sm);
+    color: var(--wf-text-3);
+    outline: none;
+}
+
+.node-more:hover {
+    background: rgba(29, 33, 41, 0.06);
+    color: var(--wf-text-1);
+}
+
+:deep(.danger-item) {
+    color: var(--wf-danger);
+}
+
+/* ---------- 右侧成员列表 ---------- */
+.org-detail {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.org-detail > .el-empty {
+    margin: auto;
+}
+
+.detail-head {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+}
+
+.detail-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.detail-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.detail-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--wf-text-1);
+}
+
+.detail-sub {
+    font-size: 12px;
+    color: var(--wf-text-3);
+}
+
+.member-table {
+    flex: 1;
+    min-height: 0;
+}
+
+.member-table :deep(.el-table__row) {
+    cursor: pointer;
+}
+
+.member-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.member-cell :deep(.el-avatar) {
+    flex-shrink: 0;
+    background: var(--wf-brand-bg);
+    color: var(--wf-brand);
+    font-size: 13px;
+}
+
+.member-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 18px;
+}
+
+.member-name {
+    font-weight: 500;
+}
+
+.member-id {
+    font-size: 12px;
+}
+
+/* ---------- 成员详情弹窗 ---------- */
+.profile {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--wf-border-light);
+}
+
+.profile :deep(.el-avatar) {
+    background: var(--wf-brand-bg);
+    color: var(--wf-brand);
+    font-size: 20px;
+}
+
+.profile-name {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--wf-text-1);
+}
+
+.profile-sub {
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--wf-text-3);
+}
+
+.profile-desc :deep(.el-descriptions__label) {
+    width: 96px;
+    color: var(--wf-text-3);
+}
+
+.profile-url {
+    display: inline-block;
+    max-width: 280px;
+    vertical-align: bottom;
 }
 </style>

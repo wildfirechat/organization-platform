@@ -1,0 +1,522 @@
+/* ==========================================================================
+   野火组织架构管理后台 —— 设计系统
+   与 wildfire_admin 保持同一套设计语言：蓝色品牌色 + 深色侧边栏 + 无边框卡片
+   ========================================================================== */
+
+:root {
+    /* 品牌色 */
+    --wf-brand: #165dff;
+    --wf-brand-hover: #4080ff;
+    --wf-brand-active: #0e42d2;
+    --wf-brand-bg: #e8f3ff;
+
+    /* 语义色 */
+    --wf-success: #00b42a;
+    --wf-warning: #ff7d00;
+    --wf-danger: #f53f3f;
+
+    /* 文本 */
+    --wf-text-1: #1d2129;
+    --wf-text-2: #4e5969;
+    --wf-text-3: #86909c;
+    --wf-text-4: #c9cdd4;
+
+    /* 描边与填充 */
+    --wf-border: #e5e6eb;
+    --wf-border-light: #f2f3f5;
+    --wf-fill: #f7f8fa;
+    --wf-surface: #ffffff;
+    --wf-bg: #f2f3f5;
+
+    /* 侧边栏（深色） */
+    --wf-nav-bg: #1d2129;
+    --wf-nav-sub-bg: #17191e;
+    --wf-nav-text: #a9aeb8;
+    --wf-nav-border: rgba(255, 255, 255, 0.08);
+
+    /* 圆角 */
+    --wf-radius-sm: 4px;
+    --wf-radius: 6px;
+    --wf-radius-lg: 8px;
+
+    /* 阴影 */
+    --wf-shadow-sm: 0 1px 2px rgba(29, 33, 41, 0.06);
+    --wf-shadow: 0 2px 8px rgba(29, 33, 41, 0.08);
+    --wf-shadow-lg: 0 4px 16px rgba(29, 33, 41, 0.1);
+
+    /* 布局尺寸 */
+    --wf-sider-w: 224px;
+    --wf-sider-w-collapsed: 64px;
+    --wf-header-h: 56px;
+}
+
+/* --------------------------------------------------------------------------
+   Element Plus 主题变量覆盖
+   项目用的是 vue-cli，没有 sass，所以不改 SCSS 变量，直接覆盖运行时 CSS 变量
+   -------------------------------------------------------------------------- */
+:root {
+    --el-color-primary: #165dff;
+    --el-color-primary-light-3: #5c8eff;
+    --el-color-primary-light-5: #8baeff;
+    --el-color-primary-light-7: #b9ceff;
+    --el-color-primary-light-8: #d0dfff;
+    --el-color-primary-light-9: #e8efff;
+    --el-color-primary-dark-2: #124acc;
+
+    --el-color-success: #00b42a;
+    --el-color-success-light-3: #4dcb6a;
+    --el-color-success-light-5: #80da95;
+    --el-color-success-light-7: #b3e9bf;
+    --el-color-success-light-8: #ccf0d4;
+    --el-color-success-light-9: #e6f8ea;
+    --el-color-success-dark-2: #009022;
+
+    --el-color-warning: #ff7d00;
+    --el-color-warning-light-3: #ffa44d;
+    --el-color-warning-light-5: #ffbe80;
+    --el-color-warning-light-7: #ffd8b3;
+    --el-color-warning-light-8: #ffe5cc;
+    --el-color-warning-light-9: #fff2e6;
+    --el-color-warning-dark-2: #cc6400;
+
+    --el-color-danger: #f53f3f;
+    --el-color-danger-light-3: #f87979;
+    --el-color-danger-light-5: #fa9f9f;
+    --el-color-danger-light-7: #fcc5c5;
+    --el-color-danger-light-8: #fdd9d9;
+    --el-color-danger-light-9: #feecec;
+    --el-color-danger-dark-2: #c43232;
+
+    --el-color-error: #f53f3f;
+    --el-color-error-light-3: #f87979;
+    --el-color-error-light-5: #fa9f9f;
+    --el-color-error-light-7: #fcc5c5;
+    --el-color-error-light-8: #fdd9d9;
+    --el-color-error-light-9: #feecec;
+    --el-color-error-dark-2: #c43232;
+
+    --el-color-info: #86909c;
+    --el-color-info-light-3: #aab1ba;
+    --el-color-info-light-5: #c3c8ce;
+    --el-color-info-light-7: #dbdee1;
+    --el-color-info-light-8: #e6e8eb;
+    --el-color-info-light-9: #f1f3f5;
+    --el-color-info-dark-2: #6b737d;
+
+    --el-text-color-primary: #1d2129;
+    --el-text-color-regular: #4e5969;
+    --el-text-color-secondary: #86909c;
+    --el-text-color-placeholder: #c9cdd4;
+    --el-text-color-disabled: #c9cdd4;
+
+    --el-border-color: #e5e6eb;
+    --el-border-color-light: #eff0f3;
+    --el-border-color-lighter: #f2f3f5;
+    --el-border-color-extra-light: #f7f8fa;
+    --el-border-color-dark: #c9cdd4;
+    --el-border-color-darker: #a9aeb8;
+
+    --el-fill-color: #f7f8fa;
+    --el-fill-color-light: #f7f8fa;
+    --el-fill-color-lighter: #fafbfc;
+    --el-fill-color-extra-light: #fcfcfd;
+    --el-fill-color-blank: #ffffff;
+
+    --el-bg-color: #ffffff;
+    --el-bg-color-page: #f2f3f5;
+    --el-bg-color-overlay: #ffffff;
+
+    --el-border-radius-base: 6px;
+    --el-border-radius-small: 4px;
+
+    --el-font-size-base: 14px;
+    --el-font-size-small: 13px;
+    --el-font-size-extra-small: 12px;
+    --el-font-size-medium: 16px;
+    --el-font-size-large: 18px;
+
+    --el-box-shadow-light: 0 2px 8px rgba(29, 33, 41, 0.08);
+}
+
+/* ==========================================================================
+   基础重置
+   ========================================================================== */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5715;
+    color: var(--wf-text-1);
+    background: var(--wf-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: none;
+}
+
+a {
+    color: var(--wf-brand);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+a:hover {
+    color: var(--wf-brand-hover);
+}
+
+p {
+    margin: 0;
+}
+
+[v-cloak] {
+    display: none !important;
+}
+
+/* 表格里的 ID / 人数用等宽数字，纵向才能对齐 */
+.el-table,
+.wf-num {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   滚动条：细、浅、悬停才明显（旧版是常驻的深色滚动条）
+   ========================================================================== */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #c9cdd4 transparent;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background-color: transparent;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+    box-shadow: none;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #c9cdd4;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    background-clip: content-box;
+    box-shadow: none;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: #a9aeb8;
+    background-clip: content-box;
+}
+
+::-webkit-scrollbar-button {
+    display: none;
+    height: 0;
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* ==========================================================================
+   Element Plus 精修
+   ========================================================================== */
+
+/* 表格：浅色表头 + 细分隔线 + 悬停高亮，不用斑马纹 */
+.el-table {
+    --el-table-header-bg-color: var(--wf-fill);
+    --el-table-header-text-color: var(--wf-text-2);
+    --el-table-border-color: var(--wf-border-light);
+    --el-table-row-hover-bg-color: #f5f9ff;
+}
+
+.el-table th.el-table__cell {
+    font-weight: 600;
+    padding: 11px 0;
+}
+
+.el-table td.el-table__cell {
+    padding: 11px 0;
+}
+
+.el-table .cell {
+    line-height: 22px;
+}
+
+.el-table::before {
+    display: none;
+}
+
+/* 卡片：无边框 + 轻阴影 */
+.el-card {
+    border: none;
+    border-radius: var(--wf-radius-lg);
+    box-shadow: var(--wf-shadow-sm) !important;
+}
+
+.el-card__header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--wf-border-light);
+    font-weight: 600;
+}
+
+/* 弹窗 */
+.el-dialog {
+    border-radius: var(--wf-radius-lg);
+    padding: 0;
+    overflow: hidden;
+}
+
+.el-dialog__header {
+    margin: 0;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--wf-border-light);
+}
+
+.el-dialog__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--wf-text-1);
+}
+
+.el-dialog__headerbtn {
+    top: 12px;
+    right: 8px;
+}
+
+.el-dialog__body {
+    padding: 20px;
+}
+
+.el-dialog__footer {
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--wf-border-light);
+}
+
+/* 抽屉 */
+.el-drawer__header {
+    margin-bottom: 0;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--wf-border-light);
+    color: var(--wf-text-1);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.el-drawer__body {
+    padding: 20px;
+}
+
+/* 分页统一右对齐 */
+.el-pagination {
+    justify-content: flex-end;
+    padding: 16px 0 4px;
+}
+
+.el-form-item__label {
+    color: var(--wf-text-2);
+}
+
+.el-dropdown-menu__item {
+    font-size: 13px;
+}
+
+/* 组织树：行高更舒展，选中态用品牌色浅底 */
+.el-tree {
+    --el-tree-node-hover-bg-color: var(--wf-fill);
+    background: transparent;
+    color: var(--wf-text-1);
+}
+
+.el-tree-node__content {
+    height: 36px;
+    border-radius: var(--wf-radius);
+}
+
+.el-tree-node.is-current > .el-tree-node__content {
+    background: var(--wf-brand-bg);
+    color: var(--wf-brand);
+    font-weight: 500;
+}
+
+/* 上传拖拽区 */
+.el-upload-dragger {
+    border-radius: var(--wf-radius-lg);
+    background: var(--wf-surface);
+}
+
+.el-upload-dragger:hover {
+    border-color: var(--wf-brand);
+}
+
+/* ==========================================================================
+   通用工具类
+   ========================================================================== */
+.wf-link {
+    color: var(--wf-brand);
+    cursor: pointer;
+}
+
+.wf-link:hover {
+    color: var(--wf-brand-hover);
+}
+
+.wf-muted {
+    color: var(--wf-text-3);
+}
+
+.wf-ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 列表页卡片：包住工具条 + 表格 + 分页 */
+.wf-panel {
+    padding: 16px 20px 4px;
+    background: var(--wf-surface);
+    border-radius: var(--wf-radius-lg);
+    box-shadow: var(--wf-shadow-sm);
+}
+
+/* 列表页的筛选 / 操作条 */
+.wf-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.wf-toolbar-right {
+    margin-left: auto;
+}
+
+/* 弹窗底部按钮组 */
+.wf-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* 弹窗底部操作条：内容组件自己渲染按钮时用它和主体拉开距离 */
+.wf-dialog-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 16px;
+    margin-top: 4px;
+    border-top: 1px solid var(--wf-border-light);
+}
+
+/* ==========================================================================
+   双栏选择器（左树右已选），ChooseDepartment / ChooseMember 共用
+   ========================================================================== */
+.pk-panes {
+    display: flex;
+    height: 380px;
+    overflow: hidden;
+    border: 1px solid var(--wf-border-light);
+    border-radius: var(--wf-radius);
+}
+
+.pk-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.pk-pane + .pk-pane {
+    border-left: 1px solid var(--wf-border-light);
+}
+
+.pk-pane-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    height: 40px;
+    padding: 0 8px 0 12px;
+    background: var(--wf-fill);
+    border-bottom: 1px solid var(--wf-border-light);
+}
+
+.pk-pane-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--wf-text-2);
+}
+
+.pk-pane-body {
+    flex: 1;
+    min-height: 0;
+    padding: 8px;
+}
+
+.pk-empty {
+    padding: 24px 0;
+    text-align: center;
+    font-size: 13px;
+    color: var(--wf-text-4);
+}
+
+.pk-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: 34px;
+    padding: 0 8px;
+    border-radius: var(--wf-radius-sm);
+    font-size: 14px;
+}
+
+.pk-row:hover {
+    background: var(--wf-fill);
+}
+
+.pk-remove {
+    flex-shrink: 0;
+    color: var(--wf-text-4);
+    cursor: pointer;
+}
+
+.pk-remove:hover {
+    color: var(--wf-danger);
+}
+
+/* ==========================================================================
+   路由过渡
+   ========================================================================== */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.fade-slide-enter-from {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+.fade-slide-leave-to {
+    opacity: 0;
+}

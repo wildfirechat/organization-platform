@@ -1,36 +1,25 @@
 <template>
     <div>
-        <p class="title">更新部门</p>
-        <el-form label-position="right" class="demo-form-inline">
-            <el-form-item label="部门名称">
-                <el-input v-model.trim="orgName" placeholder="部门名称"></el-input>
+        <el-form label-position="right" label-width="110px">
+            <el-form-item label="部门名称" required>
+                <el-input v-model.trim="orgName" placeholder="请输入部门名称"/>
             </el-form-item>
-            <el-form-item label="部门负责人">
-                <el-input disabled>
-                    <template #prepend>
-                        <div>
-                            <el-tag v-if="computedManager" closable @close="handleCloseTag(manager)" type="info">
-                                {{ computedManager.name }}
-                            </el-tag>
-                        </div>
-                    </template>
-                    <template #append>
-                        <el-button link type="primary" icon="Edit"
-                                   @click="showChooseMemberDialog = true"></el-button>
-                    </template>
-                </el-input>
+            <el-form-item label="部门负责人" required>
+                <PickerField :items="computedManager ? [computedManager] : []" placeholder="点击选择部门负责人"
+                             @open="showChooseMemberDialog = true" @remove="handleCloseTag"/>
             </el-form-item>
-            <el-form-item v-if="!currentDepartment.groupId" label="是否创建部门群">
-                <el-checkbox v-model="createOrganizationGroup"></el-checkbox>
+            <el-form-item v-if="!currentDepartment.groupId" label="创建部门群">
+                <el-switch v-model="createOrganizationGroup"/>
+                <span class="field-tip">开启后会为该部门创建一个组织官方群</span>
             </el-form-item>
         </el-form>
-        <div class="action-container">
+
+        <div class="wf-dialog-actions">
             <el-button @click="onUpdateDepartment(false)">取消</el-button>
             <el-button type="primary" :disabled="!confirmButtonEnable" @click="onConfirm">确定</el-button>
         </div>
 
-        <!-- 集成 ChooseMember 对话框 -->
-        <el-dialog v-model="showChooseMemberDialog" append-to-body title="选择成员">
+        <el-dialog v-model="showChooseMemberDialog" append-to-body title="选择成员" width="760px">
             <ChooseMember v-if="showChooseMemberDialog"
                           :initial-checked-members="initialCheckedMembers"
                           :max-choose-count="1"
@@ -43,10 +32,11 @@
 import {useOrgStore} from "@/store/stores/orgStore";
 import api from "@/api/api";
 import ChooseMember from "@/components/page/organization/dialog/ChooseMember.vue";
+import PickerField from "@/components/common/PickerField.vue";
 
 export default {
     name: "UpdateDepartment",
-    components: {ChooseMember},
+    components: {PickerField, ChooseMember},
     props: {
         currentDepartment: {
             type: Object,
@@ -122,21 +112,9 @@ export default {
 </script>
 
 <style scoped>
-.title {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    font-size: 16px;
-    color: #1f2329;
-}
-
-/*>>> .el-form-item__content {*/
-/*    width: 300px;*/
-/*}*/
-
-.action-container {
-    display: flex;
-    justify-content: flex-end;
-    margin-right: 10px;
+.field-tip {
+    margin-left: 12px;
+    font-size: 12px;
+    color: var(--wf-text-3);
 }
 </style>

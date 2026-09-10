@@ -1,61 +1,89 @@
 <template>
-    <div id="update-pwd">
-        <div class="crumbs">
-            <el-breadcrumb separator="/">
-                <el-breadcrumb-item>{{ $t('common.setting') }}</el-breadcrumb-item>
-                <el-breadcrumb-item>{{ $t('home.update_password') }}</el-breadcrumb-item>
-            </el-breadcrumb>
-        </div>
-        <div class="container" style="padding: 20px">
-            <el-form :model="user">
-                <el-form-item v-bind:label="$t('setting.original_password')">
-                    <el-input v-model.trim="user.oldPwd" type="password"></el-input>
+    <div class="pwd-page">
+        <PageHeader :title="$t('home.update_password')" description="修改当前管理员账号的登录密码"/>
+
+        <div class="wf-panel form-panel">
+            <el-form ref="pwdForm" :model="user" :rules="rules" label-width="110px">
+                <el-form-item :label="$t('setting.original_password')" prop="oldPwd">
+                    <el-input v-model.trim="user.oldPwd" type="password" show-password
+                              autocomplete="current-password"/>
                 </el-form-item>
-                <el-form-item v-bind:label="$t('setting.new_password')">
-                    <el-input v-model.trim="user.newPwd" type="password"></el-input>
+                <el-form-item :label="$t('setting.new_password')" prop="newPwd">
+                    <el-input v-model.trim="user.newPwd" type="password" show-password autocomplete="new-password"/>
                 </el-form-item>
-                <el-form-item v-bind:label="$t('setting.confirm_new_password')">
-                    <el-input v-model.trim="user.newPwdRe" type="password"></el-input>
+                <el-form-item :label="$t('setting.confirm_new_password')" prop="newPwdRe">
+                    <el-input v-model.trim="user.newPwdRe" type="password" show-password autocomplete="new-password"
+                              @keyup.enter="save"/>
                 </el-form-item>
-                <el-button @click="save" :loading="loading">{{ $t('common.save') }}</el-button>
+                <el-form-item>
+                    <el-button type="primary" :loading="loading" @click="save">{{ $t('common.save') }}</el-button>
+                </el-form-item>
             </el-form>
         </div>
     </div>
 </template>
 
 <script>
-import { useUserStore } from "@/store/stores/userStore";
+import {useUserStore} from "@/store/stores/userStore";
+import PageHeader from "@/components/common/PageHeader.vue";
 
 export default {
+    name: 'UpdatePwd',
+    components: {PageHeader},
     setup() {
         const userStore = useUserStore();
-        return { userStore };
+        return {userStore};
     },
 
     data() {
         return {
             loading: false,
-            user: {}
+            user: {},
+            rules: {
+                oldPwd: [
+                    {required: true, message: this.$t('setting.original_password'), trigger: 'blur'}
+                ],
+                newPwd: [
+                    {required: true, message: this.$t('setting.new_password'), trigger: 'blur'}
+                ],
+                newPwdRe: [
+                    {required: true, message: this.$t('setting.confirm_new_password'), trigger: 'blur'}
+                ]
+            }
         }
     },
     methods: {
         save() {
-            let self = this
-            if (this.user.newPwd != this.user.newPwdRe) {
-                self.$message(this.$t('setting.new_password_error'))
-                return
-            }
-            this.loading = true
-            this.userStore.updatePwd(this.user).then(() => {
-                self.$message(this.$t('common.action_success'))
-            }).finally(() => {
-                self.loading = false
-            })
+            this.$refs.pwdForm.validate((valid) => {
+                if (!valid) {
+                    return;
+                }
+                if (this.user.newPwd !== this.user.newPwdRe) {
+                    this.$message.error(this.$t('setting.new_password_error'))
+                    return
+                }
+                this.loading = true
+                this.userStore.updatePwd(this.user).then(() => {
+                    this.$message.success(this.$t('common.action_success'))
+                }).finally(() => {
+                    this.loading = false
+                })
+            });
         }
     }
 }
 </script>
 
-<style>
+<style scoped>
+.pwd-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
 
+.form-panel {
+    max-width: 560px;
+    padding-bottom: 20px;
+}
 </style>

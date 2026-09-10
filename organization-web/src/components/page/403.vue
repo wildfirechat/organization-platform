@@ -1,18 +1,20 @@
 <template>
     <div class="error-page">
-        <div class="error-code">4<span>0</span>3</div>
-        <div class="error-desc">啊哦~ 你没有权限访问该页面哦</div>
+        <div class="error-code">403</div>
+        <p class="error-title">无访问权限</p>
+        <p class="error-desc">你没有权限访问该页面，可以返回首页继续操作</p>
         <div class="error-handle">
+            <el-button @click="goBack">返回上一页</el-button>
             <router-link to="/">
-                <el-button type="primary" size="large">返回首页</el-button>
+                <el-button type="primary">返回首页</el-button>
             </router-link>
-            <el-button class="error-btn" type="primary" size="large" @click="goBack">返回上一页</el-button>
         </div>
     </div>
 </template>
 
 <script>
 export default {
+    name: 'Error403',
     methods: {
         goBack() {
             this.$router.go(-1);
@@ -21,41 +23,43 @@ export default {
 }
 </script>
 
-
 <style scoped>
 .error-page {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    flex-direction: column;
     width: 100%;
     height: 100%;
-    background: #f3f3f3;
-    box-sizing: border-box;
+    padding: 24px;
+    background: var(--wf-bg);
 }
 
 .error-code {
+    font-size: 120px;
+    font-weight: 700;
     line-height: 1;
-    font-size: 250px;
-    font-weight: bolder;
-    color: #f02d2d;
+    letter-spacing: 4px;
+    color: #ff7d00;
 }
 
-.error-code span {
-    color: #00a854;
+.error-title {
+    margin-top: 24px;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--wf-text-1);
 }
 
 .error-desc {
-    font-size: 30px;
-    color: #777;
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--wf-text-3);
 }
 
 .error-handle {
-    margin-top: 30px;
-    padding-bottom: 200px;
-}
-
-.error-btn {
-    margin-left: 100px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 28px;
 }
 </style>

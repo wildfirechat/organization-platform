@@ -1,79 +1,67 @@
 <template>
-    <el-container style="height: 100%">
-        <el-aside width="200px" style="background: #f2f3f5">
-            <div style="height: 60px; display: flex; justify-content: center;align-items: center" @click="go2home">
-                <p>野火组织架构管理后台</p>
+    <div class="layout">
+        <AppSidebar :collapsed="collapsed" @brand-click="go2home"/>
+
+        <div class="main">
+            <AppHeader
+                :collapsed="collapsed"
+                :account="account"
+                @toggle-collapse="collapsed = !collapsed"
+                @update-pwd="openUpdatePwd"
+                @logout="logout"/>
+
+            <div class="content-wrap">
+                <div class="content">
+                    <router-view v-slot="{ Component }">
+                        <transition name="fade-slide" mode="out-in">
+                            <keep-alive>
+                                <component :is="Component"/>
+                            </keep-alive>
+                        </transition>
+                    </router-view>
+                </div>
             </div>
-            <el-menu router>
-                <el-menu-item index="/organization/departmentanduser">成员与部门</el-menu-item>
-                <el-menu-item index="/organization/departmentanduser/import-member">批量导入</el-menu-item>
-                <el-menu-item index="/organization/logs">操作日志</el-menu-item>
-            </el-menu>
-        </el-aside>
-        <el-container :class="{'content-collapse':collapse}">
-            <el-header style="text-align: left; font-size: 14px; display: flex; padding-right: 40px; background: #f2f3f5">
-                <Breadcrumb/>
-                <span style="flex: 1"> </span>
-                <el-dropdown>
-                    <el-icon style="margin-right: 15px">
-                        <Setting/>
-                    </el-icon>
-                    <template #dropdown>
-                        <el-dropdown-menu>
-                            <el-dropdown-item @click="logout">退出</el-dropdown-item>
-                            <el-dropdown-item @click="modifyPwdDialogVisible = true">修改密码</el-dropdown-item>
-                        </el-dropdown-menu>
-                    </template>
-                </el-dropdown>
-                <span>{{ account.displayName }}</span>
-            </el-header>
-            <el-main style="padding: 0">
-                <router-view v-slot="{ Component }">
-                    <transition name="move" mode="out-in">
-                        <keep-alive>
-                            <component :is="Component"/>
-                        </keep-alive>
-                    </transition>
-                </router-view>
-            </el-main>
+        </div>
 
-
-            <el-dialog title="修改密码" v-model="modifyPwdDialogVisible">
-                <el-form :model="updatePwdRequest" ref="updatePwdForm" :rules="rules">
-                    <el-form-item label="旧密码" :label-width="formLabelWidth" prop="oldPwd">
-                        <el-input v-model="updatePwdRequest.oldPwd" autocomplete="off" placeholder="请输入旧密码"></el-input>
-                    </el-form-item>
-                    <el-form-item label="新密码" :label-width="formLabelWidth" prop="newPwd">
-                        <el-input v-model="updatePwdRequest.newPwd" autocomplete="off" placeholder="请输入新密码"></el-input>
-                    </el-form-item>
-                    <el-form-item label="确认新密码" :label-width="formLabelWidth" prop="confirmNewPwd">
-                        <el-input v-model="updatePwdRequest.confirmNewPwd" autocomplete="off" placeholder="请确认新密码"></el-input>
-                    </el-form-item>
-                </el-form>
-                <template #footer>
-                    <div class="dialog-footer">
-                        <el-button @click="modifyPwdDialogVisible = false">取 消</el-button>
-                        <el-button type="primary" @click="updatePwd('updatePwdForm')">修 改</el-button>
-                    </div>
-                </template>
-            </el-dialog>
-
-        </el-container>
-    </el-container>
+        <el-dialog title="修改密码" v-model="modifyPwdDialogVisible" width="460px" @closed="resetPwdForm">
+            <el-form :model="updatePwdRequest" ref="updatePwdForm" :rules="rules" label-width="90px">
+                <el-form-item label="旧密码" prop="oldPwd">
+                    <el-input v-model="updatePwdRequest.oldPwd" type="password" show-password
+                              autocomplete="current-password" placeholder="请输入旧密码"/>
+                </el-form-item>
+                <el-form-item label="新密码" prop="newPwd">
+                    <el-input v-model="updatePwdRequest.newPwd" type="password" show-password
+                              autocomplete="new-password" placeholder="请输入新密码"/>
+                </el-form-item>
+                <el-form-item label="确认新密码" prop="confirmNewPwd">
+                    <el-input v-model="updatePwdRequest.confirmNewPwd" type="password" show-password
+                              autocomplete="new-password" placeholder="请再次输入新密码"
+                              @keyup.enter="updatePwd('updatePwdForm')"/>
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <div class="wf-actions">
+                    <el-button @click="modifyPwdDialogVisible = false">取消</el-button>
+                    <el-button type="primary" @click="updatePwd('updatePwdForm')">确定修改</el-button>
+                </div>
+            </template>
+        </el-dialog>
+    </div>
 </template>
 
 <script>
 import {useUserStore} from "@/store/stores/userStore";
 import {useOrgStore} from "@/store/stores/orgStore";
-import Breadcrumb from "@/components/common/Breadcrumb.vue";
+import AppSidebar from "@/components/common/AppSidebar.vue";
+import AppHeader from "@/components/common/AppHeader.vue";
 
 export default {
+    name: 'Home',
+    components: {AppHeader, AppSidebar},
     data() {
         return {
-            tagsList: [],
-            collapse: false,
+            collapsed: false,
             modifyPwdDialogVisible: false,
-            formLabelWidth: '120px',
             updatePwdRequest: {},
             rules: {
                 oldPwd: [
@@ -83,13 +71,10 @@ export default {
                     {required: true, message: '新密码不能为空', trigger: 'blur'}
                 ],
                 confirmNewPwd: [
-                    {required: true, message: '新密码不能为空', trigger: 'blur'}
+                    {required: true, message: '请再次输入新密码', trigger: 'blur'}
                 ]
-            },
+            }
         }
-    },
-    components: {
-        Breadcrumb
     },
 
     setup() {
@@ -101,6 +86,15 @@ export default {
     created() {
         this.userStore.getAccount();
         this.orgStore.getRootOrganizationsWithChildren();
+    },
+
+    mounted() {
+        this.syncCollapseWithViewport();
+        window.addEventListener('resize', this.syncCollapseWithViewport);
+    },
+
+    beforeUnmount() {
+        window.removeEventListener('resize', this.syncCollapseWithViewport);
     },
 
     computed: {
@@ -116,6 +110,12 @@ export default {
     },
 
     methods: {
+        // 窄屏自动折叠侧边栏，给内容区留出空间
+        syncCollapseWithViewport() {
+            if (window.innerWidth < 1200) {
+                this.collapsed = true;
+            }
+        },
         go2home() {
             if (!this.rootOrganizationsLoaded) {
                 return;
@@ -129,10 +129,16 @@ export default {
             localStorage.clear();
             this.$router.replace('/login')
         },
+        openUpdatePwd() {
+            this.modifyPwdDialogVisible = true;
+        },
+        resetPwdForm() {
+            this.updatePwdRequest = {};
+            this.$refs.updatePwdForm && this.$refs.updatePwdForm.clearValidate();
+        },
         updatePwd(formName) {
             this.$refs[formName].validate((valid) => {
                 if (valid) {
-
                     if (this.updatePwdRequest.newPwd !== this.updatePwdRequest.confirmNewPwd) {
                         this.$message.error('两次输入的密码不一致');
                     } else {
@@ -165,18 +171,32 @@ export default {
 }
 </script>
 
-<style lang="css" scoped>
-.el-header {
-    color: #333;
-    line-height: 60px;
+<style scoped>
+.layout {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
 }
 
-.el-aside {
-    color: #333;
+.main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
 }
 
-.el-menu {
-    background: #ecf5ff;
+.content-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    background: var(--wf-bg);
 }
 
+/* 内容区用 flex 列布局，页面根节点可以用 flex:1 撑满剩余高度 */
+.content {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    padding: 20px;
+}
 </style>
