@@ -18,6 +18,7 @@ public class EmployeePojo {
     public String joinTime;
     public int type;
     public int gender;
+    public int executiveMode;
     public int sort;
     public long createDt;
     public long updateDt;

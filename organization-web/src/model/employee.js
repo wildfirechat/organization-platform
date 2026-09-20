@@ -14,6 +14,7 @@ export default class Employee {
     joinTime;
     type;
     gender;
+    executiveMode;
     sort;
     createDt;
     updateDt;

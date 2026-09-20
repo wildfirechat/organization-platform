@@ -83,6 +83,9 @@ import static cn.wildfirechat.org.RestResult.RestCode.*;
 public class ServiceImpl implements Service {
     private static final Logger LOG = LoggerFactory.getLogger(ServiceImpl.class);
 
+    //管理后台权限，客户端用户只有 user:view 权限
+    private static final String PERMISSION_ADMIN = "user:admin";
+
     @Value("${im.admin_id}")
     private String mAdminId;
 
@@ -889,6 +892,7 @@ public class ServiceImpl implements Service {
                     result.employees.add(convertEmployee(employeeEntity));
                 }
             });
+            applyExecutiveMode(result.employees);
         }
         return RestResult.ok(result);
     }
@@ -1167,6 +1171,7 @@ public class ServiceImpl implements Service {
         entity.portraitUrl = employeePojo.portraitUrl;
         entity.sort = employeePojo.sort;
         entity.gender = employeePojo.gender;
+        entity.executiveMode = employeePojo.executiveMode;
         entity.createDt = employeePojo.createDt;
         entity.updateDt = employeePojo.updateDt;
         return entity;
@@ -1190,9 +1195,66 @@ public class ServiceImpl implements Service {
         pojo.type = entity.type;
         pojo.sort = entity.sort;
         pojo.gender = entity.gender;
+        pojo.executiveMode = entity.executiveMode;
         pojo.createDt = entity.createDt;
         pojo.updateDt = entity.updateDt;
         return pojo;
+    }
+
+    /**
+     * 高管模式：员工开启高管模式后，其联系方式（手机号、邮箱、分机号、工位、城市、工号）只有管理后台、
+     * 本人以及其他开启了高管模式的员工可以查询到，其他客户端用户查询到的这些字段为空。
+     * 员工的姓名、职务、头像等信息不受高管模式影响，组织架构中依然可以正常查看。
+     */
+    private boolean canViewExecutiveContact(String viewerId) {
+        Subject subject = SecurityUtils.getSubject();
+        if (subject == null || !subject.isAuthenticated()) {
+            return false;
+        }
+        //管理后台可以查看所有员工的完整信息
+        if (subject.isPermitted(PERMISSION_ADMIN)) {
+            return true;
+        }
+        //高管之间互相可见
+        if (StringUtils.isNullOrEmpty(viewerId)) {
+            return false;
+        }
+        Optional<EmployeeEntity> optional = employeeEntityRepository.findById(viewerId);
+        return optional.isPresent() && optional.get().executiveMode > 0;
+    }
+
+    private void hideExecutiveContact(EmployeePojo pojo) {
+        pojo.mobile = null;
+        pojo.email = null;
+        pojo.ext = null;
+        pojo.office = null;
+        pojo.city = null;
+        pojo.jobNumber = null;
+    }
+
+    private EmployeePojo applyExecutiveMode(EmployeePojo pojo) {
+        if (pojo != null) {
+            applyExecutiveMode(Collections.singletonList(pojo));
+        }
+        return pojo;
+    }
+
+    private List<EmployeePojo> applyExecutiveMode(List<EmployeePojo> pojos) {
+        if (pojos == null || pojos.isEmpty()) {
+            return pojos;
+        }
+        //没有高管时，不需要额外查询查看者的信息
+        if (pojos.stream().noneMatch(pojo -> pojo != null && pojo.executiveMode > 0)) {
+            return pojos;
+        }
+        String viewerId = getUserId();
+        if (canViewExecutiveContact(viewerId)) {
+            return pojos;
+        }
+        pojos.stream()
+            .filter(pojo -> pojo != null && pojo.executiveMode > 0 && !pojo.employeeId.equals(viewerId))
+            .forEach(this::hideExecutiveContact);
+        return pojos;
     }
 
     @FunctionalInterface
@@ -1541,7 +1603,7 @@ public class ServiceImpl implements Service {
             return RestResult.error(ERROR_NOT_EXIST);
         }
 
-        return RestResult.ok(convertEmployee(optionalEmployee.get()));
+        return RestResult.ok(applyExecutiveMode(convertEmployee(optionalEmployee.get())));
     }
 
     @Override
@@ -1551,7 +1613,7 @@ public class ServiceImpl implements Service {
         if (!optionalEmployee.isPresent()) {
             return RestResult.error(ERROR_NOT_EXIST);
         }
-        result.employee = convertEmployee(optionalEmployee.get());
+        result.employee = applyExecutiveMode(convertEmployee(optionalEmployee.get()));
 
         List<RelationshipEntity> entities = relationshipEntityRepository.getEmployeeRelationships(employeeId);
         result.relationships = new ArrayList<>();
@@ -1565,7 +1627,7 @@ public class ServiceImpl implements Service {
         Iterable<EmployeeEntity> entities = employeeEntityRepository.findAllById(employeeIds);
         List<EmployeePojo> list = new ArrayList<>();
         entities.forEach(employeeEntity -> list.add(convertEmployee(employeeEntity)));
-        return RestResult.ok(list);
+        return RestResult.ok(applyExecutiveMode(list));
     }
 
     @Override
@@ -1658,6 +1720,7 @@ public class ServiceImpl implements Service {
         response.currentPage = page;
         response.contents = new ArrayList<>();
         entityPage.getContent().forEach(employeeEntity -> response.contents.add(convertEmployee(employeeEntity)));
+        applyExecutiveMode(response.contents);
         return RestResult.ok(response);
     }
 
@@ -1697,6 +1760,7 @@ public class ServiceImpl implements Service {
         String title;
         String level;
         String password;
+        String executiveMode;
     }
 
     private static final int IMPORT_QUERY_BATCH_SIZE = 1000;
@@ -1932,6 +1996,7 @@ public class ServiceImpl implements Service {
                     importRow.title = getStringValue(row.getCell(index++));
                     importRow.level = getStringValue(row.getCell(index++));
                     importRow.password = getStringValue(row.getCell(index++));
+                    importRow.executiveMode = getStringValue(row.getCell(index++));
 
                     if(StringUtils.isNullOrEmpty(importRow.mobile) && StringUtils.isNullOrEmpty(importRow.name) && StringUtils.isNullOrEmpty(importRow.department)) {
                         //空行
@@ -1989,6 +2054,7 @@ public class ServiceImpl implements Service {
                 String title = importRow.title;
                 String level = importRow.level;
                 String password = importRow.password;
+                String executiveMode = importRow.executiveMode;
 
                 EmployeeModel employeeModel = employeeMobileMap.get(mobile);
                 if (employeeModel != null) {
@@ -2025,6 +2091,7 @@ public class ServiceImpl implements Service {
                 employeeEntity.ext = ext;
                 employeeEntity.joinTime = joinTime;
                 employeeEntity.title = title;
+                employeeEntity.executiveMode = "是".equals(executiveMode) ? 1 : 0;
                 employeeEntity.level = 0;
                 employeeEntity.sort = ++employeeSort;
                 if(!StringUtils.isNullOrEmpty(level)) {
@@ -2441,6 +2508,10 @@ public class ServiceImpl implements Service {
     }
 
     private String getStringValue(Cell cell) {
+        //使用旧模版导入时，表格最后可能缺少新增的列
+        if (cell == null) {
+            return "";
+        }
         if (cell.getCellType() == CellType.NUMERIC) {
             return (long) cell.getNumericCellValue() + "";
         }

@@ -52,6 +52,14 @@
                     </div>
                 </div>
             </el-form-item>
+            <el-form-item label="高管模式">
+                <div class="switch-field">
+                    <el-switch v-model="employee.executiveMode" :active-value="1" :inactive-value="0"/>
+                    <span class="field-tip">
+                        开启后，该成员的手机号、邮箱、分机号、办公地点、城市、工号只有管理后台、本人和其他高管可以查看
+                    </span>
+                </div>
+            </el-form-item>
         </el-form>
 
         <div class="wf-dialog-actions">
@@ -94,7 +102,7 @@ export default {
 
     data() {
         return {
-            employee: {},
+            employee: {executiveMode: 0},
             checkedDepartments: [],
             showChooseDepartmentDialog: false,
             submitting: false,
@@ -171,6 +179,19 @@ export default {
     align-items: flex-start;
     gap: 12px;
     width: 100%;
+}
+
+.switch-field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.switch-field .field-tip {
+    flex: 1;
+    min-width: 0;
+    margin-top: 0;
 }
 
 .avatar-uploader :deep(.el-upload) {

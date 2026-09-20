@@ -122,7 +122,12 @@
                                         {{ (scope.row.name || '').slice(0, 1) }}
                                     </el-avatar>
                                     <div class="member-meta">
-                                        <span class="member-name wf-ellipsis">{{ scope.row.name }}</span>
+                                        <span class="member-name-line">
+                                            <span class="member-name wf-ellipsis">{{ scope.row.name }}</span>
+                                            <el-tag v-if="scope.row.executiveMode" size="small" type="warning"
+                                                    effect="light" round>高管
+                                            </el-tag>
+                                        </span>
                                         <span class="member-id wf-ellipsis wf-muted">{{ scope.row.employeeId }}</span>
                                     </div>
                                 </div>
@@ -196,6 +201,12 @@
                         <el-descriptions-item label="入职时间">{{ text(currentEmployeeDetail.joinTime) }}</el-descriptions-item>
                         <el-descriptions-item label="排序">{{ text(currentEmployeeDetail.sort) }}</el-descriptions-item>
                         <el-descriptions-item label="类型">{{ text(currentEmployeeDetail.type) }}</el-descriptions-item>
+                        <el-descriptions-item label="高管模式">
+                            <el-tag v-if="currentEmployeeDetail.executiveMode" size="small" type="warning"
+                                    effect="light" round>已开启
+                            </el-tag>
+                            <span v-else class="wf-muted">未开启</span>
+                        </el-descriptions-item>
                         <el-descriptions-item label="头像URL">
                             <span class="wf-ellipsis profile-url">{{ text(currentEmployeeDetail.portraitUrl) }}</span>
                         </el-descriptions-item>
@@ -846,6 +857,13 @@ export default {
     flex-direction: column;
     min-width: 0;
     line-height: 18px;
+}
+
+.member-name-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
 }
 
 .member-name {

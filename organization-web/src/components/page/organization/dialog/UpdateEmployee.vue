@@ -96,6 +96,18 @@
                     </el-form-item>
                 </el-col>
             </el-row>
+            <el-row :gutter="20">
+                <el-col :span="24">
+                    <el-form-item label="高管模式">
+                        <div class="switch-field">
+                            <el-switch v-model="form.executiveMode" :active-value="1" :inactive-value="0"/>
+                            <span class="field-tip">
+                                开启后，该成员的手机号、邮箱、分机号、办公地点、城市、工号只有管理后台、本人和其他高管可以查看，其他人在客户端通讯录中看不到这些信息
+                            </span>
+                        </div>
+                    </el-form-item>
+                </el-col>
+            </el-row>
         </el-form>
         <div class="wf-dialog-actions">
             <el-button @click="onCancel">取消</el-button>
@@ -144,6 +156,7 @@ export default {
                 joinTime: this.employee.joinTime,
                 type: this.employee.type || 0,
                 gender: this.employee.gender || 0,
+                executiveMode: this.employee.executiveMode || 0,
                 sort: this.employee.sort || 0,
                 organizationId: this.employee.organizationId || 0,
                 createDt: this.employee.createDt || 0,
@@ -169,3 +182,20 @@ export default {
     }
 }
 </script>
+
+<style scoped>
+.switch-field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.field-tip {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--wf-text-3);
+}
+</style>

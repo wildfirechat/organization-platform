@@ -52,6 +52,12 @@ public class EmployeeEntity implements Serializable {
 	@Column
 	public int gender;
 
+	/**
+	 * 高管模式，0关闭，1开启。开启后普通客户端用户查询不到该员工的联系方式。
+	 */
+	@Column(name = "executive_mode")
+	public int executiveMode;
+
 	@Column
 	public int sort;
 
