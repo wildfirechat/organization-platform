@@ -65,6 +65,24 @@ export default {
         return axios.post('/employee/search', {organizationId, keyword, page, count, root});
     },
 
+    /**
+     * 今日使用情况：该部门（含所有子部门）的全部成员，在线在前、未登录在后
+     * @param organizationId 部门ID
+     * @param page 页码，从0开始
+     * @param count 每页条数
+     */
+    async getTodayUsage(organizationId, page = 0, count = 20) {
+        return axios.post('/usage/today', {organizationId, page, count});
+    },
+
+    /**
+     * 导出「今日使用情况」CSV 文本（带 UTF-8 BOM，由前端落成 .csv 文件）
+     * @param organizationId 部门ID
+     */
+    async exportTodayUsage(organizationId) {
+        return axios.post('/usage/today/export', {organizationId});
+    },
+
     downloadTemplateUrl() {
         return instance.defaults.baseURL + '/template';
     },

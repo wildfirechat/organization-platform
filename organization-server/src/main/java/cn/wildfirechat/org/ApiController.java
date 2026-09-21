@@ -258,6 +258,32 @@ public class ApiController {
     }
 
     /**
+     * 今日使用情况：该部门及其所有子部门中，今天登录过 IM 且会话仍然有效的用户，
+     * 按最后一次活跃时间倒序。数据取自野火 IM 库的 t_user_session。
+     *
+     * @param request organizationId / page / count
+     * @return 分页后的用户列表
+     */
+    @PostMapping(value = "usage/today", produces = "application/json;charset=UTF-8")
+    public Object getTodayUsage(@RequestBody UsageTodayRequest request) throws Exception {
+        LOG.info("Request: getTodayUsage, organizationId: {}, page: {}, count: {}",
+                request.organizationId, request.page, request.count);
+        return mService.getTodayUsage(request.organizationId, request.page, request.count);
+    }
+
+    /**
+     * 导出「今日使用情况」CSV：在线用户在前、未登录用户在后，覆盖该部门（含所有子部门）全部成员。
+     * 返回 CSV 文本（带 UTF-8 BOM），由前端落成 .csv 文件下载。
+     *
+     * @param request organizationId
+     */
+    @PostMapping(value = "usage/today/export", produces = "application/json;charset=UTF-8")
+    public Object exportTodayUsage(@RequestBody UsageTodayRequest request) throws Exception {
+        LOG.info("Request: exportTodayUsage, organizationId: {}", request.organizationId);
+        return mService.exportTodayUsage(request.organizationId);
+    }
+
+    /**
      * 创建工作群
      *
      * @param groupPojo

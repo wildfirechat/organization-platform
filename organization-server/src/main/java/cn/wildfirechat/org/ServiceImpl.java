@@ -4,9 +4,12 @@ package cn.wildfirechat.org;
 import cn.wildfirechat.org.exception.IMServerException;
 import cn.wildfirechat.org.exception.OrganizationDataCorruptionException;
 import cn.wildfirechat.org.exception.OrganizationNoExistException;
+import cn.wildfirechat.org.im.jpa.UserSessionEntity;
+import cn.wildfirechat.org.im.jpa.UserSessionRepository;
 import cn.wildfirechat.org.jpa.*;
 import cn.wildfirechat.org.secondary.jpa.UserPassword;
 import cn.wildfirechat.org.secondary.jpa.UserPasswordRepository;
+import cn.wildfirechat.org.tools.ImTimestamp;
 import cn.wildfirechat.org.model.EmployeeModel;
 import cn.wildfirechat.org.model.OrganizationTree;
 import cn.wildfirechat.org.pojo.*;
@@ -69,6 +72,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.time.ZoneId;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
@@ -126,6 +130,30 @@ public class ServiceImpl implements Service {
 
     @Autowired(required = false)
     private UserPasswordRepository userPasswordRepository;
+
+    /**
+     * 野火 IM 服务自身库的数据源。未配置 spring.im-datasource.hikari.jdbc-url 时为 null，
+     * 此时「今日使用情况」返回“服务器配置错误”，其余功能不受影响。
+     */
+    @Autowired(required = false)
+    private UserSessionRepository userSessionRepository;
+
+    /** 判定「今日」所用的时区，为空则用 JVM 默认时区 */
+    @Value("${im.usage.timezone:}")
+    private String imUsageTimezone;
+
+    /**
+     * IM 库 t_user_session._dt 的时间单位：auto（默认，按数据量级自动探测）/
+     * seconds / millis / micros。表数据量很大且不想每次探测 max(_dt) 时可显式指定。
+     */
+    @Value("${im.session.timestamp-unit:auto}")
+    private String imTimestampUnit;
+
+    /** 查 IM 库时 _uid 的 IN 分片大小 */
+    private static final int IM_UID_BATCH_SIZE = 500;
+
+    /** 「今日使用情况」导出 CSV 的表头 */
+    private static final String USAGE_CSV_HEADER = "状态,姓名,用户ID,部门名称,手机号";
 
     @Autowired
     private ImportJobRepository importJobRepository;
@@ -944,6 +972,264 @@ public class ServiceImpl implements Service {
     public RestResult organizationBatchEmployees(List<Integer> ids) {
         List<String> employees = relationshipEntityRepository.getOrganizationBatchMembers(ids);
         return RestResult.ok(employees);
+    }
+
+    /**
+     * 今日使用情况：返回该部门（含所有子部门）的<b>全部成员</b>，分两组。
+     * 「在线」= 今天登录过且会话仍然有效（t_user_session._deleted = 0 且 _dt >= 今日 0 点），按登录时间倒序；
+     * 「未登录」= 部门内其余成员（含“今天登录过但已登出”的人），按部门、姓名排序。
+     * <p>
+     * 数据来源：野火 IM 库 t_user_session（只读）+ 组织库 t_employee / t_relationship / t_organization。
+     * 口径依据官方《野火IM数据库表结构说明》：_dt = 最后更新/活跃时间戳（业务上当登录时间用），
+     * _deleted = 0 正常 / 1 已登出或过期。
+     */
+    @Override
+    public RestResult getTodayUsage(int organizationId, int page, int count) {
+        RestResult invalid = validateUsageRequest(organizationId);
+        if (invalid != null) {
+            return invalid;
+        }
+        if (page < 0) {
+            page = 0;
+        }
+        if (count <= 0 || count > 500) {
+            count = 20;
+        }
+
+        List<TodayUsagePojo> all = buildTodayUsageList(organizationId);
+        int totalCount = all.size();
+        int from = Math.min(page * count, totalCount);
+        int to = Math.min(from + count, totalCount);
+
+        TodayUsageResponse response = new TodayUsageResponse();
+        response.totalCount = totalCount;
+        response.totalPages = (totalCount + count - 1) / count;
+        response.currentPage = page;
+        response.onlineCount = countOnline(all);
+        response.notLoggedInCount = totalCount - response.onlineCount;
+        response.contents = new ArrayList<>(all.subList(from, to));
+        LOG.info("Service: getTodayUsage done, organizationId: {}, online: {}, notLoggedIn: {}",
+                organizationId, response.onlineCount, response.notLoggedInCount);
+        return RestResult.ok(response);
+    }
+
+    /**
+     * 导出「今日使用情况」CSV：在线的用户在前、未登录的在后，覆盖部门（含子部门）全部成员。
+     * <p>
+     * 返回 CSV 文本而不是直接写 HTTP 响应体，是为了复用统一的登录态与错误处理
+     * （例如未配 IM 数据源时能正常返回“服务器配置错误”），由前端落成文件。
+     */
+    @Override
+    public RestResult exportTodayUsage(int organizationId) {
+        RestResult invalid = validateUsageRequest(organizationId);
+        if (invalid != null) {
+            return invalid;
+        }
+        List<TodayUsagePojo> all = buildTodayUsageList(organizationId);
+        LOG.info("Service: exportTodayUsage, organizationId: {}, rowCount: {}", organizationId, all.size());
+        return RestResult.ok(toUsageCsv(all));
+    }
+
+    /** 两个「今日使用情况」接口共用的前置校验，返回 null 表示通过 */
+    private RestResult validateUsageRequest(int organizationId) {
+        if (userSessionRepository == null) {
+            LOG.warn("today usage rejected - IM datasource is not configured, " +
+                    "please configure spring.im-datasource.hikari.jdbc-url");
+            return RestResult.error(ERROR_SERVER_CONFIG_ERROR);
+        }
+        if (organizationId <= 0) {
+            LOG.warn("today usage rejected - invalid organizationId: {}", organizationId);
+            return RestResult.error(ERROR_INVALID_PARAMETER);
+        }
+        return null;
+    }
+
+    /**
+     * 组装完整的成员列表：在线在前（按登录时间倒序），未登录在后（按部门、姓名排序）。
+     * 列表与 CSV 共用这一份结果，保证界面看到的内容和导出的内容一致。
+     */
+    private List<TodayUsagePojo> buildTodayUsageList(int organizationId) {
+        // 组织库的 t_relationship 里 organization_id 已冗余记录了所有祖先部门，
+        // 所以这一次查询拿到的是整棵子树的人员
+        List<String> employeeIds = relationshipEntityRepository.getOrganizationMembers(organizationId);
+
+        // _dt 的单位官方文档没写明，先把「今日 0 点」换算成表里实际的单位，否则阈值会差 1000 倍、
+        // 当天记录会被全部过滤掉
+        ImTimestamp.Unit unit = sessionTimestampUnit();
+        long since = ImTimestamp.fromMillis(ImTimestamp.todayStartMillis(usageZone()), unit);
+        LOG.info("Service: buildTodayUsageList, organizationId: {}, memberCount: {}, dtUnit: {}, since: {}",
+                organizationId, employeeIds.size(), unit, since);
+
+        // 1) 按分片拉取今天的有效会话，为每个用户保留 _dt 最大的那一条
+        //    （一个用户多台设备在 t_user_session 里就是多行，这里要合并成一行）
+        Map<String, UserSessionEntity> latestByUser = new HashMap<>();
+        for (List<String> batch : partition(employeeIds, IM_UID_BATCH_SIZE)) {
+            for (UserSessionEntity session : userSessionRepository.findActiveSessionsSince(since, batch)) {
+                if (session.getUid() == null) {
+                    continue;
+                }
+                UserSessionEntity exist = latestByUser.get(session.getUid());
+                // 同一张表里的 _dt 单位一致，直接比原始值即可
+                if (exist == null || exist.getDt() < session.getDt()) {
+                    latestByUser.put(session.getUid(), session);
+                }
+            }
+        }
+        List<UserSessionEntity> onlineSessions = new ArrayList<>(latestByUser.values());
+        // 按登录时间倒序，即“按照最新登录顺序排列”
+        onlineSessions.sort((a, b) -> Long.compare(b.getDt(), a.getDt()));
+
+        // 2) 补组织库信息。这里必须覆盖全部成员而不是只查当前页，
+        //    因为未登录的人也要出现在列表和 CSV 里
+        Map<String, EmployeeEntity> employeeMap = new HashMap<>();
+        for (List<String> batch : partition(employeeIds, IM_UID_BATCH_SIZE)) {
+            for (EmployeeEntity employee : employeeEntityRepository.findAllById(batch)) {
+                employeeMap.put(employee.employeeId, employee);
+            }
+        }
+        Map<String, String> departmentNames = new HashMap<>();
+        for (List<String> batch : partition(employeeIds, IM_UID_BATCH_SIZE)) {
+            for (Object[] row : relationshipEntityRepository.getEmployeeDepartmentNames(batch)) {
+                String employeeId = (String) row[0];
+                String departmentName = (String) row[1];
+                if (employeeId == null || departmentName == null) {
+                    continue;
+                }
+                // 支持一人多部门，用“、”连接
+                String exist = departmentNames.get(employeeId);
+                departmentNames.put(employeeId, exist == null ? departmentName : exist + "、" + departmentName);
+            }
+        }
+
+        // 3) 在线在前
+        List<TodayUsagePojo> result = new ArrayList<>();
+        Set<String> onlineIds = new HashSet<>();
+        for (UserSessionEntity session : onlineSessions) {
+            TodayUsagePojo pojo = buildUsagePojo(session.getUid(), employeeMap, departmentNames);
+            pojo.status = TodayUsagePojo.STATUS_ONLINE;
+            pojo.platform = session.getPlatform();
+            pojo.ip = session.getIp();
+            pojo.loginTime = ImTimestamp.toMillis(session.getDt(), unit);
+            result.add(pojo);
+            onlineIds.add(session.getUid());
+        }
+
+        // 4) 未登录在后，按部门、姓名排序，保证每次打开的先后顺序一致
+        List<TodayUsagePojo> notLoggedIn = new ArrayList<>();
+        for (String employeeId : employeeIds) {
+            if (onlineIds.contains(employeeId)) {
+                continue;
+            }
+            TodayUsagePojo pojo = buildUsagePojo(employeeId, employeeMap, departmentNames);
+            pojo.status = TodayUsagePojo.STATUS_NOT_LOGGED_IN;
+            notLoggedIn.add(pojo);
+        }
+        notLoggedIn.sort(Comparator
+                .comparing((TodayUsagePojo p) -> p.departmentName == null ? "" : p.departmentName)
+                .thenComparing(p -> p.name == null ? "" : p.name)
+                .thenComparing(p -> p.employeeId == null ? "" : p.employeeId));
+        result.addAll(notLoggedIn);
+        return result;
+    }
+
+    /** 用组织库的信息填一行记录（姓名、手机号、头像、部门名称） */
+    private TodayUsagePojo buildUsagePojo(String employeeId, Map<String, EmployeeEntity> employeeMap,
+                                          Map<String, String> departmentNames) {
+        TodayUsagePojo pojo = new TodayUsagePojo();
+        pojo.employeeId = employeeId;
+        pojo.departmentName = departmentNames.get(employeeId);
+        EmployeeEntity employee = employeeMap.get(employeeId);
+        if (employee != null) {
+            pojo.name = employee.name;
+            pojo.mobile = employee.mobile;
+            pojo.portraitUrl = employee.portraitUrl;
+        }
+        return pojo;
+    }
+
+    private static int countOnline(List<TodayUsagePojo> rows) {
+        int count = 0;
+        for (TodayUsagePojo row : rows) {
+            if (row.status == TodayUsagePojo.STATUS_ONLINE) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * 生成 CSV 文本。开头带 UTF-8 BOM，否则 Excel 双击打开中文会乱码；
+     * 换行用 \r\n 兼容 Excel。
+     */
+    private static String toUsageCsv(List<TodayUsagePojo> rows) {
+        StringBuilder sb = new StringBuilder();
+        sb.append('\uFEFF');
+        sb.append(USAGE_CSV_HEADER).append("\r\n");
+        for (TodayUsagePojo row : rows) {
+            sb.append(csvField(row.status == TodayUsagePojo.STATUS_ONLINE ? "在线" : "未登录")).append(',')
+                    .append(csvField(row.name)).append(',')
+                    .append(csvField(row.employeeId)).append(',')
+                    .append(csvField(row.departmentName)).append(',')
+                    .append(csvField(row.mobile)).append("\r\n");
+        }
+        return sb.toString();
+    }
+
+    /** 按 RFC4180 转义：字段含逗号/引号/换行时用双引号包裹，内部引号翻倍 */
+    private static String csvField(String value) {
+        if (value == null) {
+            return "";
+        }
+        String escaped = value.replace("\"", "\"\"");
+        if (escaped.contains(",") || escaped.contains("\"")
+                || escaped.contains("\n") || escaped.contains("\r")) {
+            return "\"" + escaped + "\"";
+        }
+        return escaped;
+    }
+
+    /**
+     * 判定 t_user_session._dt 的时间单位。优先用配置项，
+     * 未配置（auto）时取表中 max(_dt) 按数值量级推断。
+     */
+    private ImTimestamp.Unit sessionTimestampUnit() {
+        ImTimestamp.Unit configured = ImTimestamp.parseUnit(imTimestampUnit);
+        if (configured != null) {
+            return configured;
+        }
+        Long maxDt = userSessionRepository.findMaxDt();
+        ImTimestamp.Unit detected = ImTimestamp.detectUnit(maxDt == null ? 0 : maxDt);
+        LOG.info("Service: auto detected _dt unit as {}, max(_dt) = {}", detected, maxDt);
+        return detected;
+    }
+
+    /**
+     * 判定「今日」所用的时区。配置项 im.usage.timezone 为空时用 JVM 默认时区。
+     * 容器/服务器时区若是 UTC，务必显式配置，否则「今日」会偏移。
+     */
+    private ZoneId usageZone() {
+        String configured = imUsageTimezone == null ? "" : imUsageTimezone.trim();
+        if (configured.isEmpty()) {
+            return ZoneId.systemDefault();
+        }
+        try {
+            return ZoneId.of(configured);
+        } catch (Exception e) {
+            LOG.warn("Invalid im.usage.timezone: {}, fallback to JVM default timezone", configured);
+            return ZoneId.systemDefault();
+        }
+    }
+
+    /** 把列表切成固定大小的批次，避免 SQL 的 IN 列表过长 */
+    private static <T> List<List<T>> partition(List<T> source, int size) {
+        List<List<T>> batches = new ArrayList<>();
+        if (source == null || source.isEmpty()) {
+            return batches;
+        }
+        for (int i = 0; i < source.size(); i += size) {
+            batches.add(source.subList(i, Math.min(i + size, source.size())));
+        }
+        return batches;
     }
 
     @Override

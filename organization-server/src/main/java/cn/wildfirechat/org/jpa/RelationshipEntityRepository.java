@@ -20,4 +20,13 @@ public interface RelationshipEntityRepository extends CrudRepository<Relationshi
 
     @Query(value = "select distinct employee_id from t_relationship where organization_id in (?1) ", nativeQuery = true)
     List<String> getOrganizationBatchMembers(List<Integer> organizationIds);
+
+    /**
+     * 取这批员工各自所属的部门名称。bottom = true 表示员工直接挂在该部门下，
+     * 因此一个人多部门时会返回多行，调用方自行合并。
+     * 返回每行两个元素：[0] employee_id，[1] 部门名称。
+     */
+    @Query(value = "select r.employee_id, o.name from t_relationship r, t_organization o "
+            + "where r.organization_id = o.id and r.bottom = true and r.employee_id in (?1)", nativeQuery = true)
+    List<Object[]> getEmployeeDepartmentNames(List<String> employeeIds);
 }

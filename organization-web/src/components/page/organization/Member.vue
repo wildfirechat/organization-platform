@@ -37,6 +37,10 @@
                                     </span>
                                     <template #dropdown>
                                         <el-dropdown-menu>
+                                            <el-dropdown-item
+                                                :command="{ c: 'usage-today', node: node, depart: node.data }">
+                                                今日使用情况
+                                            </el-dropdown-item>
                                             <el-dropdown-item v-if="!node.data.groupId"
                                                               :disabled="!node.data.managerId"
                                                               :command="{ c: 'create-org-group', node: node, depart: node.data }">
@@ -255,6 +259,13 @@
                             :on-success="onUpdateEmployeeSuccess"/>
         </el-dialog>
 
+        <el-dialog title="今日使用情况" v-model="showUsageTodayDialog" width="1000px" :close-on-click-modal="false"
+                   @closed="usageTargetDepartment = null">
+            <UsageToday v-if="showUsageTodayDialog && usageTargetDepartment"
+                        :department="usageTargetDepartment"
+                        :on-close="() => showUsageTodayDialog = false"/>
+        </el-dialog>
+
         <el-dialog
             :title="managerTargetDepartment && managerTargetDepartment.managerId ? '修改组织领导' : '设置组织领导'"
             v-model="showSetManagerDialog" width="460px" :close-on-click-modal="false"
@@ -288,6 +299,7 @@ import UpdateDepartment from "@/components/page/organization/dialog/UpdateDepart
 import TransferMember from "@/components/page/organization/TransferMember.vue";
 import UpdateEmployeePwd from "@/components/page/organization/UpdateEmployeePwd.vue";
 import UpdateEmployee from "@/components/page/organization/dialog/UpdateEmployee.vue";
+import UsageToday from "@/components/page/organization/dialog/UsageToday.vue";
 import OrganizationWithChildren from "@/model/organizationWithChildren";
 import api from "@/api/api";
 
@@ -308,7 +320,8 @@ export default {
         AddSubDepartment,
         TransferMember,
         UpdateEmployeePwd,
-        UpdateEmployee
+        UpdateEmployee,
+        UsageToday
     },
     data() {
         return {
@@ -349,6 +362,10 @@ export default {
             managerTargetNode: null,
             selectedManagerId: null,
             managerCandidates: [],
+
+            // 今日使用情况
+            showUsageTodayDialog: false,
+            usageTargetDepartment: null,
         }
     },
     computed: {
@@ -517,6 +534,10 @@ export default {
         handleDepartmentCommand(command) {
             console.log('handleDepartmentCommand', command)
             switch (command.c) {
+                case "usage-today":
+                    this.usageTargetDepartment = command.depart;
+                    this.showUsageTodayDialog = true;
+                    break;
                 case "add-sub":
                     this.showAddSubDepartmentDialog = true;
                     this.targetParentNode = command.node;

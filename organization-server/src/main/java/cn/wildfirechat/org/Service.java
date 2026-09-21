@@ -26,6 +26,8 @@ public interface Service {
     RestResult searchOrganization(String keyword, int page, int count);
     RestResult organizationEmployees(int id);
     RestResult organizationBatchEmployees(List<Integer> ids);
+    RestResult getTodayUsage(int organizationId, int page, int count);
+    RestResult exportTodayUsage(int organizationId);
     RestResult deleteOrganization(int id) throws IMServerException, Exception;
     RestResult createOrganizationGroup(int id, String groupId) throws IMServerException;
     RestResult dismissOrganizationGroup(int id) throws IMServerException;

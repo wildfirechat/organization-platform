@@ -75,6 +75,9 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/api/employee/delete", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/employee/search", "perms[user:view]");
         filterChainDefinitionMap.put("/api/relationship/employee", "perms[user:view]");
+        // 今日使用情况是只读查询，给到 view 权限即可
+        filterChainDefinitionMap.put("/api/usage/today", "perms[user:view]");
+        filterChainDefinitionMap.put("/api/usage/today/export", "perms[user:view]");
 
         // 通配匹配必须放在最后，否则会覆盖前面所有具体规则的权限控制
         filterChainDefinitionMap.put("/**", "login");
