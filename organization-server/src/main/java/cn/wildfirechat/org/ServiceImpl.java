@@ -68,6 +68,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -183,7 +185,7 @@ public class ServiceImpl implements Service {
                 }
             }
         } catch (Exception e) {
-            LOG.error("Failed to mark interrupted import jobs as failed", e);
+            LOG.error("Failed to mark interrupted import jobs as failed: {}", e.getMessage(), e);
         }
     }
 
@@ -624,7 +626,7 @@ public class ServiceImpl implements Service {
                     String groupOwner = StringUtils.isNullOrEmpty(entity.managerId) ? mAdminId : entity.managerId;
                     GroupAdmin.transferGroup(mAdminId, entity.groupId, groupOwner, null, null);
                 } catch (Exception e) {
-                    LOG.error("Failed to transfer group owner, groupId: {}, newOwner: {}", entity.groupId, entity.managerId, e);
+                    LOG.error("Failed to transfer group owner, groupId: {}, newOwner: {}, error: {}", entity.groupId, entity.managerId, e.getMessage(), e);
                     throw new IMServerException();
                 }
             }
@@ -634,7 +636,7 @@ public class ServiceImpl implements Service {
                 try {
                     GroupAdmin.modifyGroupInfo(mAdminId, entity.groupId, ProtoConstants.ModifyGroupInfoType.Modify_Group_Name, entity.name, null, null);
                 } catch (Exception e) {
-                    LOG.error("Failed to modify group name, groupId: {}, name: {}", entity.groupId, entity.name, e);
+                    LOG.error("Failed to modify group name, groupId: {}, name: {}, error: {}", entity.groupId, entity.name, e.getMessage(), e);
                     throw new IMServerException();
                 }
             }
@@ -644,7 +646,7 @@ public class ServiceImpl implements Service {
                 try {
                     GroupAdmin.modifyGroupInfo(mAdminId, entity.groupId, ProtoConstants.ModifyGroupInfoType.Modify_Group_Portrait, entity.portraitUrl, null, null);
                 } catch (Exception e) {
-                    LOG.error("Failed to modify group portrait, groupId: {}", entity.groupId, e);
+                    LOG.error("Failed to modify group portrait, groupId: {}, error: {}", entity.groupId, e.getMessage(), e);
                     throw new IMServerException();
                 }
             }
@@ -695,7 +697,7 @@ public class ServiceImpl implements Service {
                 String groupOwner = StringUtils.isNullOrEmpty(managerId) ? mAdminId : managerId;
                 GroupAdmin.transferGroup(mAdminId, entity.groupId, groupOwner, null, null);
             } catch (Exception e) {
-                LOG.error("Failed to transfer group owner, groupId: {}, newOwner: {}", entity.groupId, managerId, e);
+                LOG.error("Failed to transfer group owner, groupId: {}, newOwner: {}, error: {}", entity.groupId, managerId, e.getMessage(), e);
                 throw new IMServerException();
             }
         }
@@ -844,7 +846,7 @@ public class ServiceImpl implements Service {
             GroupAdmin.kickoffGroupMembers(mAdminId, groupId, new ArrayList<>(members), null, null);
             LOG.info("Quit group success, groupId: {}, members count: {}", groupId, members.size());
         } catch (Exception e) {
-            LOG.error("Quit group failed, groupId: {}", groupId, e);
+            LOG.error("Quit group failed, groupId: {}, error: {}", groupId, e.getMessage(), e);
             throw new IMServerException();
         }
     }
@@ -871,7 +873,7 @@ public class ServiceImpl implements Service {
             GroupAdmin.addGroupMembers(mAdminId, groupId, pojoGroupMembers, null, null);
             LOG.info("Add group members success, groupId: {}, members count: {}", groupId, members.size());
         } catch (Exception e) {
-            LOG.error("Add group members failed, groupId: {}", groupId, e);
+            LOG.error("Add group members failed, groupId: {}, error: {}", groupId, e.getMessage(), e);
             throw new IMServerException();
         }
     }
@@ -1261,7 +1263,7 @@ public class ServiceImpl implements Service {
             try {
                 GroupAdmin.dismissGroup(mAdminId, optional.get().groupId, null, null);
             } catch (Exception e) {
-                LOG.error("Dismiss group failed, groupId: {}", optional.get().groupId, e);
+                LOG.error("Dismiss group failed, groupId: {}, error: {}", optional.get().groupId, e.getMessage(), e);
                 throw new IMServerException();
             }
         }
@@ -1321,7 +1323,7 @@ public class ServiceImpl implements Service {
                 throw new IMServerException();
             }
         } catch (Exception e) {
-            LOG.error("Create organization group failed, id: {}", id, e);
+            LOG.error("Create organization group failed, id: {}, error: {}", id, e.getMessage(), e);
             throw new IMServerException();
         }
         return RestResult.ok(null);
@@ -1905,7 +1907,7 @@ public class ServiceImpl implements Service {
                 UserAdmin.destroyUser(employeeId);
                 LOG.info("IM user destroyed, employeeId: {}", employeeId);
             } catch (Exception e) {
-                LOG.error("Failed to destroy IM user, employeeId: {}", employeeId, e);
+                LOG.error("Failed to destroy IM user, employeeId: {}, error: {}", employeeId, e.getMessage(), e);
             }
         }
 
@@ -2064,9 +2066,9 @@ public class ServiceImpl implements Service {
                         job.setErrorMessage(res != null ? res.toString() : result.getMessage());
                     }
                 } catch (Exception e) {
-                    LOG.error("Import job {} failed", jobId, e);
+                    LOG.error("Import job {} failed, error: {}", jobId, e.getMessage(), e);
                     job.setStatus(ImportJob.STATUS_FAILED);
-                    job.setErrorMessage(e.getMessage());
+                    job.setErrorMessage(buildImportErrorDetail(e));
                 } finally {
                     finished.set(true);
                     try {
@@ -2084,7 +2086,7 @@ public class ServiceImpl implements Service {
                             + "，部门数：" + job.getDepartmentCount();
                         recordOpLog(operatorId, "批量导入完成", logDesc, ImportJob.STATUS_SUCCESS.equals(job.getStatus()));
                     } catch (Exception e) {
-                        LOG.error("Failed to record import completion log", e);
+                        LOG.error("Failed to record import completion log: {}", e.getMessage(), e);
                     }
 
                     if (!tempFile.delete()) {
@@ -2095,7 +2097,7 @@ public class ServiceImpl implements Service {
 
             return RestResult.ok(jobId);
         } catch (Exception e) {
-            LOG.error("Import organization failed", e);
+            LOG.error("Import organization failed: {}", e.getMessage(), e);
             return RestResult.error(ERROR_SERVER_ERROR);
         }
     }
@@ -2116,7 +2118,7 @@ public class ServiceImpl implements Service {
             entity.updateDt = job.getUpdateTime();
             importJobRepository.save(entity);
         } catch (Exception e) {
-            LOG.error("Failed to sync import job {} to db", job.getJobId(), e);
+            LOG.error("Failed to sync import job {} to db, error: {}", job.getJobId(), e.getMessage(), e);
         }
     }
 
@@ -2131,7 +2133,7 @@ public class ServiceImpl implements Service {
                 }
             }
         } catch (Exception e) {
-            LOG.error("Failed to cleanup old import jobs", e);
+            LOG.error("Failed to cleanup old import jobs: {}", e.getMessage(), e);
         }
     }
 
@@ -2150,7 +2152,7 @@ public class ServiceImpl implements Service {
                 List<String> details = new Gson().fromJson(entity.failDetails, List.class);
                 job.setFailDetails(details);
             } catch (Exception e) {
-                LOG.error("Failed to parse import job fail details", e);
+                LOG.error("Failed to parse import job fail details: {}", e.getMessage(), e);
                 job.setFailDetails(new ArrayList<>());
             }
         } else {
@@ -2422,12 +2424,21 @@ public class ServiceImpl implements Service {
             LOG.info("Organization imported successfully");
             return RestResult.ok(null);
         } catch (IOException e) {
-            LOG.error("Import organization failed - IO error", e);
-            return RestResult.error(ERROR_SERVER_ERROR);
+            LOG.error("Import organization failed - IO error: {}", e.getMessage(), e);
+            return RestResult.result(ERROR_SERVER_ERROR, buildImportErrorDetail(e));
         } catch (Exception e) {
-            LOG.error("Import organization failed", e);
-            return RestResult.error(ERROR_SERVER_ERROR);
+            LOG.error("Import organization failed: {}", e.getMessage(), e);
+            return RestResult.result(ERROR_SERVER_ERROR, buildImportErrorDetail(e));
         }
+    }
+
+    //导入失败时写入 error_message 的详细信息：异常类型、消息和完整堆栈，超长截断到列上限
+    private static String buildImportErrorDetail(Throwable e) {
+        StringWriter sw = new StringWriter();
+        e.printStackTrace(new PrintWriter(sw));
+        String detail = sw.toString();
+        int maxLen = 4000;
+        return detail.length() > maxLen ? detail.substring(0, maxLen) : detail;
     }
 
     private int countOrganizationTreeNodes(List<OrganizationTree> trees) {
@@ -2583,7 +2594,7 @@ public class ServiceImpl implements Service {
                         }
                     }
                 } catch (Exception e) {
-                    LOG.error("Import employee failed: {}", employeeModel.employee.name, e);
+                    LOG.error("Import employee failed: {}, error: {}", employeeModel.employee.name, e.getMessage(), e);
                     failCount.incrementAndGet();
                     if (job != null) {
                         job.addFailDetail(employeeModel.employee.name + "（" + employeeModel.employee.mobile + "）：" + e.getMessage());
@@ -2664,7 +2675,7 @@ public class ServiceImpl implements Service {
             LOG.info("All data cleared successfully");
             return RestResult.ok(null);
         } catch (Exception e) {
-            LOG.error("Reset all failed", e);
+            LOG.error("Reset all failed: {}", e.getMessage(), e);
             throw e;
         }
     }
@@ -2721,12 +2732,15 @@ public class ServiceImpl implements Service {
             recordOpLog("清空日志", "清空了所有操作日志", true);
             return RestResult.ok(null);
         } catch (Exception e) {
-            LOG.error("Clear operation logs failed", e);
+            LOG.error("Clear operation logs failed: {}", e.getMessage(), e);
             return RestResult.error(ERROR_SERVER_ERROR);
         }
     }
 
     private String getStringValue(Cell cell) {
+        if(cell == null) {
+            return "";
+        }
         if (cell.getCellType() == CellType.NUMERIC) {
             return (long) cell.getNumericCellValue() + "";
         }

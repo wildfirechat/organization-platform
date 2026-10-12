@@ -28,7 +28,7 @@ public class ImportJobEntity implements Serializable {
     @Column(name = "department_count")
     public int departmentCount;
 
-    @Column(length = 1024, name = "error_message")
+    @Column(length = 4000, name = "error_message")
     public String errorMessage;
 
     @Column(length = 4000, name = "fail_details")
