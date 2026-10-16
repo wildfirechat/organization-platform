@@ -39,6 +39,7 @@ export default {
         return {
             menus: [
                 {index: '/organization/departmentanduser', title: '成员与部门', icon: 'OfficeBuilding'},
+                {index: '/organization/executive', title: '高管管理', icon: 'Star'},
                 {index: '/organization/departmentanduser/import-member', title: '批量导入', icon: 'Upload'},
                 {index: '/organization/logs', title: '操作日志', icon: 'Tickets'}
             ]

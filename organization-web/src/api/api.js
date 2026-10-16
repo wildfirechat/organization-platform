@@ -101,5 +101,28 @@ export default {
 
     async clearLogs() {
         return axios.post('/logs/clear');
+    },
+
+    /**
+     * 高管名单（连员工表返回姓名/手机/部门/职务等）
+     */
+    async listExecutives() {
+        return axios.post('/executive/list');
+    },
+
+    /**
+     * 批量加入高管名单
+     * @param employeeIds 员工 ID 数组
+     */
+    async addExecutives(employeeIds) {
+        return axios.post('/executive/add', {employeeIds});
+    },
+
+    /**
+     * 移出高管名单
+     * @param employeeId 员工 ID
+     */
+    async deleteExecutive(employeeId) {
+        return axios.post('/executive/delete', {employeeId});
     }
 }

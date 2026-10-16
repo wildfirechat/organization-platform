@@ -78,6 +78,10 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/api/employee/update_password", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/employee/search", "perms[user:view]");
         filterChainDefinitionMap.put("/api/relationship/employee", "perms[user:view]");
+        // 高管名单：管理后台维护，需要 admin 权限
+        filterChainDefinitionMap.put("/api/executive/list", "perms[user:admin]");
+        filterChainDefinitionMap.put("/api/executive/add", "perms[user:admin]");
+        filterChainDefinitionMap.put("/api/executive/delete", "perms[user:admin]");
         // 今日使用情况是只读查询，给到 view 权限即可
         filterChainDefinitionMap.put("/api/usage/today", "perms[user:view]");
         filterChainDefinitionMap.put("/api/usage/today/export", "perms[user:view]");

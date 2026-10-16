@@ -22,4 +22,6 @@ public class EmployeePojo {
     public long createDt;
     public long updateDt;
     public String password;
+    /** 是否高管（来自 t_executive，读取员工时关联带上） */
+    public boolean executive;
 }

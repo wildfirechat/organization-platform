@@ -18,7 +18,9 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.net.URLEncoder;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RequestMapping(value = "/api/")
@@ -447,6 +449,36 @@ public class ApiController {
         LOG.info("Request: updateEmployeePassword, employeeId: {}", request.getEmployeeId());
         Object result = mService.updateEmployeePassword(request.getEmployeeId(), request.getPassword());
         recordOpLog("修改员工密码", "用户ID：" + request.getEmployeeId(), result);
+        return result;
+    }
+
+    /*
+    高管名单：列表（连员工表）、批量添加、移除
+     */
+    @PostMapping(value = "executive/list", produces = "application/json;charset=UTF-8")
+    public Object listExecutives() {
+        LOG.info("Request: listExecutives");
+        return mService.listExecutives();
+    }
+
+    @Transactional
+    @PostMapping(value = "executive/add", produces = "application/json;charset=UTF-8")
+    public Object addExecutives(@RequestBody ExecutiveRequest request) {
+        List<String> ids = request.employeeIds;
+        if ((ids == null || ids.isEmpty()) && request.employeeId != null && !request.employeeId.isEmpty()) {
+            ids = Collections.singletonList(request.employeeId);
+        }
+        LOG.info("Request: addExecutives, employeeIds: {}", ids);
+        Object result = mService.addExecutives(ids);
+        recordOpLog("添加高管", "用户ID：" + ids, result);
+        return result;
+    }
+
+    @PostMapping(value = "executive/delete", produces = "application/json;charset=UTF-8")
+    public Object deleteExecutive(@RequestBody ExecutiveRequest request) {
+        LOG.info("Request: deleteExecutive, employeeId: {}", request.employeeId);
+        Object result = mService.deleteExecutive(request.employeeId);
+        recordOpLog("移除高管", "用户ID：" + request.employeeId, result);
         return result;
     }
 

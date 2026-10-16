@@ -48,6 +48,13 @@ public interface Service {
     RestResult queryImportJob(String jobId);
     RestResult resetAll();
 
+    /** 高管名单：与员工表 join，按加入时间倒序 */
+    RestResult listExecutives();
+    /** 批量加入高管名单（已存在的忽略）；返回实际新增数量 */
+    RestResult addExecutives(List<String> employeeIds);
+    /** 移出高管名单 */
+    RestResult deleteExecutive(String employeeId);
+
     void recordOpLog(String operation, String value, boolean success);
     void recordOpLog(String userId, String operation, String value, boolean success);
     RestResult getLogs(int page, int count);

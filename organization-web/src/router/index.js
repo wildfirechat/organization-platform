@@ -25,6 +25,11 @@ const routes = [
                 meta: {title: '成员与部门'},
             },
             {
+                path: '/organization/executive',
+                component: () => import('../components/page/organization/Executive.vue'),
+                meta: {title: '高管管理'}
+            },
+            {
                 path: '/organization/departmentanduser/import-member',
                 component: () => import('../components/page/organization/ImportMember.vue'),
                 meta: {title: '批量导入成员'}

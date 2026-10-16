@@ -126,7 +126,11 @@
                                         {{ (scope.row.name || '').slice(0, 1) }}
                                     </el-avatar>
                                     <div class="member-meta">
-                                        <span class="member-name wf-ellipsis">{{ scope.row.name }}</span>
+                                        <span class="member-name-line">
+                                            <span class="member-name wf-ellipsis">{{ scope.row.name }}</span>
+                                            <el-tag v-if="scope.row.executive" size="small" type="warning"
+                                                    effect="light" round>高管</el-tag>
+                                        </span>
                                         <span class="member-id wf-ellipsis wf-muted">{{ scope.row.employeeId }}</span>
                                     </div>
                                 </div>
@@ -871,6 +875,13 @@ export default {
 
 .member-name {
     font-weight: 500;
+}
+
+.member-name-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
 }
 
 .member-id {

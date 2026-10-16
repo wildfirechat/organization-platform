@@ -17,6 +17,8 @@ export default class Employee {
     sort;
     createDt;
     updateDt;
+    // 是否高管（组织后台「高管管理」维护）
+    executive;
 
     // for ui
     label;

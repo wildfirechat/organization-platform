@@ -139,6 +139,9 @@ public class ServiceImpl implements Service {
     private RelationshipEntityRepository relationshipEntityRepository;
 
     @Autowired
+    private ExecutiveRepository executiveRepository;
+
+    @Autowired
     private OperationLogEntityRepository operationLogEntityRepository;
 
     @Autowired(required = false)
@@ -937,11 +940,12 @@ public class ServiceImpl implements Service {
         result.employees = new ArrayList<>();
         List<EmployeeEntity> employees = employeeEntityRepository.findByOrganizationId(id);
         if (employees != null && !employees.isEmpty()) {
+            Set<String> executiveIds = executiveIds();
             employees.forEach(employeeEntity -> {
                 if (employeeEntity.employeeId.equals(result.organization.managerId)) {
-                    result.employees.add(0, convertEmployee(employeeEntity));
+                    result.employees.add(0, convertEmployee(employeeEntity, executiveIds));
                 } else {
-                    result.employees.add(convertEmployee(employeeEntity));
+                    result.employees.add(convertEmployee(employeeEntity, executiveIds));
                 }
             });
         }
@@ -1496,6 +1500,16 @@ public class ServiceImpl implements Service {
     }
 
     private EmployeePojo convertEmployee(EmployeeEntity entity) {
+        return convertEmployee(entity, Collections.emptySet());
+    }
+
+    /**
+     * 员工实体 → POJO，带上高管标记。
+     *
+     * <p>高管标记来自 {@code t_executive}：调用方用 {@link #executiveIds()} 一次查出全部高管 id
+     * 再传进来，避免逐行查库（N+1）。表很小、按主键查，代价可以忽略。
+     */
+    private EmployeePojo convertEmployee(EmployeeEntity entity, Set<String> executiveIds) {
         EmployeePojo pojo = new EmployeePojo();
         pojo.employeeId = entity.employeeId;
         pojo.name = entity.name;
@@ -1515,7 +1529,13 @@ public class ServiceImpl implements Service {
         pojo.gender = entity.gender;
         pojo.createDt = entity.createDt;
         pojo.updateDt = entity.updateDt;
+        pojo.executive = executiveIds != null && executiveIds.contains(entity.employeeId);
         return pojo;
+    }
+
+    /** 全部高管 id（一次查询，表很小）；读员工时批量打标记用，避免 N+1 */
+    private Set<String> executiveIds() {
+        return new HashSet<>(executiveRepository.findExecutiveIds());
     }
 
     @FunctionalInterface
@@ -1864,7 +1884,7 @@ public class ServiceImpl implements Service {
             return RestResult.error(ERROR_NOT_EXIST);
         }
 
-        return RestResult.ok(convertEmployee(optionalEmployee.get()));
+        return RestResult.ok(convertEmployee(optionalEmployee.get(), executiveIds()));
     }
 
     @Override
@@ -1874,7 +1894,7 @@ public class ServiceImpl implements Service {
         if (!optionalEmployee.isPresent()) {
             return RestResult.error(ERROR_NOT_EXIST);
         }
-        result.employee = convertEmployee(optionalEmployee.get());
+        result.employee = convertEmployee(optionalEmployee.get(), executiveIds());
 
         List<RelationshipEntity> entities = relationshipEntityRepository.getEmployeeRelationships(employeeId);
         result.relationships = new ArrayList<>();
@@ -1887,7 +1907,8 @@ public class ServiceImpl implements Service {
     public RestResult queryListEmployee(List<String> employeeIds) {
         Iterable<EmployeeEntity> entities = employeeEntityRepository.findAllById(employeeIds);
         List<EmployeePojo> list = new ArrayList<>();
-        entities.forEach(employeeEntity -> list.add(convertEmployee(employeeEntity)));
+        Set<String> executiveIds = executiveIds();
+        entities.forEach(employeeEntity -> list.add(convertEmployee(employeeEntity, executiveIds)));
         return RestResult.ok(list);
     }
 
@@ -1917,6 +1938,9 @@ public class ServiceImpl implements Service {
 
         //删除员工信息
         employeeEntityRepository.deleteById(employeeId);
+
+        //同时从高管名单移除，避免留下孤儿记录
+        executiveRepository.deleteById(employeeId);
 
         //删除员工的所有关系
         relationshipEntityRepository.deleteAll(entities);
@@ -1980,8 +2004,83 @@ public class ServiceImpl implements Service {
         response.totalCount = (int) entityPage.getTotalElements();
         response.currentPage = page;
         response.contents = new ArrayList<>();
-        entityPage.getContent().forEach(employeeEntity -> response.contents.add(convertEmployee(employeeEntity)));
+        Set<String> executiveIds = executiveIds();
+        entityPage.getContent().forEach(employeeEntity -> response.contents.add(convertEmployee(employeeEntity, executiveIds)));
         return RestResult.ok(response);
+    }
+
+    // ------------------------------------------------------------------ 高管名单
+
+    @Override
+    public RestResult listExecutives() {
+        // 一次 join 出高管本人信息；部门名只查用到的部门，避免把整棵组织树都拉出来
+        List<EmployeeEntity> employees = executiveRepository.findExecutiveEmployees();
+        Map<String, Long> createdAt = new HashMap<>();
+        executiveRepository.findAll().forEach(e -> createdAt.put(e.employeeId, e.createdAt));
+
+        Set<Integer> departmentIds = new HashSet<>();
+        for (EmployeeEntity employee : employees) {
+            departmentIds.add(employee.organizationId);
+        }
+        Map<Integer, String> departmentNames = new HashMap<>();
+        if (!departmentIds.isEmpty()) {
+            organizationEntityRepository.findAllById(departmentIds)
+                .forEach(o -> departmentNames.put(o.id, o.name));
+        }
+
+        List<ExecutivePojo> list = new ArrayList<>();
+        for (EmployeeEntity employee : employees) {
+            ExecutivePojo pojo = new ExecutivePojo();
+            pojo.employeeId = employee.employeeId;
+            pojo.name = employee.name;
+            pojo.mobile = employee.mobile;
+            pojo.title = employee.title;
+            pojo.portraitUrl = employee.portraitUrl;
+            pojo.organizationId = employee.organizationId;
+            pojo.departmentName = departmentNames.get(employee.organizationId);
+            pojo.createdAt = createdAt.getOrDefault(employee.employeeId, 0L);
+            list.add(pojo);
+        }
+        return RestResult.ok(list);
+    }
+
+    @Override
+    public RestResult addExecutives(List<String> employeeIds) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return RestResult.error(ERROR_INVALID_PARAMETER);
+        }
+        // 去重 + 过滤掉不存在的员工
+        Set<String> distinct = new LinkedHashSet<>(employeeIds);
+        distinct.removeIf(id -> id == null || id.trim().isEmpty());
+        if (distinct.isEmpty()) {
+            return RestResult.error(ERROR_INVALID_PARAMETER);
+        }
+        Set<String> existingEmployees = new HashSet<>(employeeEntityRepository.findExistingEmployeeIds(distinct));
+        Set<String> alreadyExecutive = new HashSet<>(executiveRepository.findExistingExecutiveIds(distinct));
+        long now = System.currentTimeMillis();
+        List<ExecutiveEntity> toSave = new ArrayList<>();
+        for (String employeeId : distinct) {
+            if (existingEmployees.contains(employeeId) && !alreadyExecutive.contains(employeeId)) {
+                ExecutiveEntity entity = new ExecutiveEntity();
+                entity.employeeId = employeeId;
+                entity.createdAt = now;
+                toSave.add(entity);
+            }
+        }
+        executiveRepository.saveAll(toSave);
+        Map<String, Object> result = new HashMap<>();
+        result.put("added", toSave.size());
+        result.put("total", executiveRepository.count());
+        return RestResult.ok(result);
+    }
+
+    @Override
+    public RestResult deleteExecutive(String employeeId) {
+        if (employeeId == null || employeeId.trim().isEmpty()) {
+            return RestResult.error(ERROR_INVALID_PARAMETER);
+        }
+        executiveRepository.deleteById(employeeId);
+        return RestResult.ok(null);
     }
 
     private RelationshipPojo convertRelationship(RelationshipEntity entity) {
