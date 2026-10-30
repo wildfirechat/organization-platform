@@ -29,6 +29,11 @@ public class ShiroSessionManager extends DefaultWebSessionManager {
 
     @Override
     protected Serializable getSessionId(ServletRequest request, ServletResponse response) {
+        String path = WebUtils.getPathWithinApplication(WebUtils.toHttp(request));
+        if (isLoginPath(path)) {
+            return null;
+        }
+
         String id = WebUtils.toHttp(request).getHeader(AUTHORIZATION);
         if (StringUtils.isNullOrEmpty(id)) {
             // 如果没有携带 id 参数则按照父类的方式在 cookie 进行获取
@@ -40,6 +45,21 @@ public class ShiroSessionManager extends DefaultWebSessionManager {
             request.setAttribute(ShiroHttpServletRequest.REFERENCED_SESSION_ID_IS_VALID, Boolean.TRUE);
             return id;
         }
+    }
+
+    /**
+     * 需要强制换新会话的登录入口：管理后台登录和客户端 authCode 登录。
+     */
+    static boolean isLoginPath(String path) {
+        if (path == null || path.isEmpty()) {
+            return false;
+        }
+        if (path.length() > 1 && path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        return "/login".equals(path)
+                || "/api/login".equals(path)
+                || "/api/user_login".equals(path);
     }
 
     @Override

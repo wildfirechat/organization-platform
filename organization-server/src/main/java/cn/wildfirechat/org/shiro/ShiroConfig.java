@@ -49,8 +49,10 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/api/update_pwd", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/account", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/logs", "perms[user:admin]");
+        filterChainDefinitionMap.put("/api/logs/clear", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/reset_all", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/import", "perms[user:admin]");
+        filterChainDefinitionMap.put("/api/import/**", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/template", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/media/upload", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/organization/create", "perms[user:admin]");
@@ -73,6 +75,7 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/api/employee/query_ex", "perms[user:view]");
         filterChainDefinitionMap.put("/api/employee/query_list", "perms[user:view]");
         filterChainDefinitionMap.put("/api/employee/delete", "perms[user:admin]");
+        filterChainDefinitionMap.put("/api/employee/update_password", "perms[user:admin]");
         filterChainDefinitionMap.put("/api/employee/search", "perms[user:view]");
         filterChainDefinitionMap.put("/api/relationship/employee", "perms[user:view]");
         // 今日使用情况是只读查询，给到 view 权限即可

@@ -56,6 +56,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -88,6 +90,15 @@ import static cn.wildfirechat.org.RestResult.RestCode.*;
 @org.springframework.stereotype.Service
 public class ServiceImpl implements Service {
     private static final Logger LOG = LoggerFactory.getLogger(ServiceImpl.class);
+
+    //允许上传的图片扩展名，不包含 svg（svg 里可以嵌脚本）
+    private static final Set<String> IMAGE_SUFFIXES = new HashSet<>(Arrays.asList(".jpg", ".jpeg", ".png", ".gif", ".webp"));
+
+    //data.sql 里预置的管理员默认密码，启动时检查是否还在使用
+    private static final String DEFAULT_ADMIN_PASSWORD = "admin123";
+
+    //组织架构导入文件大小上限：20MB
+    private static final long MAX_IMPORT_FILE_SIZE = 20L * 1024 * 1024;
 
     @Value("${im.admin_id}")
     private String mAdminId;
@@ -169,6 +180,19 @@ public class ServiceImpl implements Service {
         AdminConfig.initAdmin(mAdminUrl, mAdminSecret);
         rateLimiter = new RateLimiter(60, 200);
         markInterruptedImportJobsAsFailed();
+    }
+
+    //默认密码写在文档里是公开的，没改等于管理后台没有密码，启动时检查并告警
+    @EventListener(ApplicationReadyEvent.class)
+    public void checkDefaultPassword() {
+        userRepository.findAll().forEach(user -> {
+            String md5 = new Base64().encodeToString(DigestUtils.getDigest("MD5").digest((DEFAULT_ADMIN_PASSWORD + user.getSalt()).getBytes(StandardCharsets.UTF_8)));
+            if (md5.equals(user.getPasswordMd5())) {
+                LOG.warn("*****************************************************************");
+                LOG.warn("账户 {} 仍在使用默认密码，请立即登录管理后台修改密码！", user.getAccount());
+                LOG.warn("*****************************************************************");
+            }
+        });
     }
 
     private void markInterruptedImportJobsAsFailed() {
@@ -351,8 +375,16 @@ public class ServiceImpl implements Service {
         String suffix = "";
         String prefix = UUID.randomUUID().toString();
         if (originalFilename != null && originalFilename.contains(".")) {
-            suffix = originalFilename.substring(originalFilename.lastIndexOf("."));
+            suffix = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase(Locale.ROOT);
         }
+
+        //限制只能上传图片。Content-Type 是客户端自己声明的，不可信，扩展名必须在白名单内：
+        //一是避免 html/svg 等可执行脚本的文件存到对象存储上，二是避免文件名里的 ../ 等字符拼进对象 key
+        String contentType = file.getContentType();
+        if (!IMAGE_SUFFIXES.contains(suffix) || contentType == null || !contentType.startsWith("image/")) {
+            return RestResult.result(ERROR_INVALID_PARAMETER, "只能上传图片文件");
+        }
+
         String fileName = prefix + suffix;
         File localFile = File.createTempFile(prefix, suffix);
 
@@ -362,13 +394,6 @@ public class ServiceImpl implements Service {
             e.printStackTrace();
             localFile.delete();
             return RestResult.error(ERROR_SERVER_ERROR);
-        }
-
-        //限制只能上传图片
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            localFile.delete();
-            return RestResult.result(ERROR_INVALID_PARAMETER, "只能上传图片文件");
         }
 
         String bucket = ossBucket;
@@ -1042,6 +1067,16 @@ public class ServiceImpl implements Service {
         if (organizationId <= 0) {
             LOG.warn("today usage rejected - invalid organizationId: {}", organizationId);
             return RestResult.error(ERROR_INVALID_PARAMETER);
+        }
+        // 普通员工只能看自己所在部门（含子部门）的使用情况；管理员可以看全部。
+        // 否则任何登录用户都能遍历 organizationId 拿到全公司的姓名、手机号、登录 IP。
+        Subject subject = SecurityUtils.getSubject();
+        if (!subject.isPermitted("user:admin")) {
+            String uid = (String) subject.getPrincipal();
+            if (uid == null || !relationshipEntityRepository.getOrganizationMembers(organizationId).contains(uid)) {
+                LOG.warn("today usage rejected - user {} is not in organization {}", uid, organizationId);
+                return RestResult.error(ERROR_NO_RIGHT);
+            }
         }
         return null;
     }
@@ -2014,7 +2049,16 @@ public class ServiceImpl implements Service {
         LOG.info("Service: importOrganization, fileName: {}, size: {}", file.getOriginalFilename(), file.getSize());
         try {
             String jobId = UUID.randomUUID().toString();
-            File tempFile = File.createTempFile("import_", "_" + file.getOriginalFilename());
+            if (file.getSize() > MAX_IMPORT_FILE_SIZE) {
+                return RestResult.result(ERROR_INVALID_PARAMETER, "导入文件不能超过 20MB");
+            }
+            String originalName = file.getOriginalFilename();
+            String lowerName = originalName == null ? "" : originalName.toLowerCase(Locale.ROOT);
+            // 只接受 Excel 文件，后缀由服务端决定，不把客户端文件名拼进临时文件路径
+            if (!lowerName.endsWith(".xlsx") && !lowerName.endsWith(".xls")) {
+                return RestResult.result(ERROR_INVALID_PARAMETER, "只能导入 Excel 文件");
+            }
+            File tempFile = File.createTempFile("import_", lowerName.endsWith(".xlsx") ? ".xlsx" : ".xls");
             file.transferTo(tempFile);
 
             long now = System.currentTimeMillis();
@@ -2639,6 +2683,13 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult updateEmployeePassword(String employeeId, String password) throws Exception {
+        // 双保险：除了 Shiro 的 /api/employee/update_password=admin 规则，业务层再校验一次
+        if (!SecurityUtils.getSubject().isPermitted("user:admin")) {
+            return RestResult.error(RestResult.RestCode.ERROR_NO_RIGHT);
+        }
+        if (password == null || password.length() < 6) {
+            return RestResult.error(RestResult.RestCode.ERROR_INVALID_PARAMETER);
+        }
         // 检查员工是否存在
         Optional<EmployeeEntity> optionalEmployee = employeeEntityRepository.findById(employeeId);
         if (!optionalEmployee.isPresent()) {
@@ -2727,6 +2778,9 @@ public class ServiceImpl implements Service {
 
     @Override
     public RestResult clearOperationLogs() {
+        if (!SecurityUtils.getSubject().isPermitted("user:admin")) {
+            return RestResult.error(RestResult.RestCode.ERROR_NO_RIGHT);
+        }
         try {
             operationLogEntityRepository.deleteAll();
             recordOpLog("清空日志", "清空了所有操作日志", true);
