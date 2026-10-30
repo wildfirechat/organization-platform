@@ -80,8 +80,8 @@ nohup java -jar organization-platform-server-*.jar 2>&1 &
 ### Nginx 反向代理与 IP 白名单
 默认打包部署时，organization-server API 和 organization-web 管理后台都跑在同一个端口（`8880`）上。如果希望对管理后台做 IP 白名单控制，推荐在前面加一层 Nginx 反向代理，通过 `allow/deny` 限制访问来源。
 
-#### 1. 绑定后端到本地（可选但推荐）
-在 `organization-server/config/application.properties` 中把服务绑定到 `127.0.0.1`，避免外网直接访问 8880 端口：
+#### 1. 绑定后端到本地（必须）
+在 `organization-server/config/application.properties` 中把服务绑定到 `127.0.0.1`，避免外网绕过 Nginx 直接访问 8880 端口：
 
 ```properties
 server.address=127.0.0.1
@@ -107,7 +107,20 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-    # API 接口：给客户端和管理后台共用，根据业务需要决定是否加白名单
+    # 管理后台登录接口：必须单独加白名单。
+    # 注意：location = /api/login 的优先级高于 location /api/，否则登录接口仍会对公网开放。
+    location = /api/login {
+        allow 10.0.0.0/24;
+        allow 192.168.1.100;
+        deny all;
+
+        proxy_pass http://127.0.0.1:8880/api/login;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # 客户端 API：保持公开，供手机/PC 客户端登录和查询组织架构
     location /api/ {
         proxy_pass http://127.0.0.1:8880/api/;
         proxy_set_header Host $host;
@@ -124,6 +137,18 @@ server {
 nginx -t
 nginx -s reload
 ```
+
+部署后检查：
+
+```bash
+# 只能看到 127.0.0.1:8880，不能是 *:8880
+ss -lntp | grep 8880
+
+# 从外网直接访问 8880 应该失败
+curl -m 3 http://<服务器公网IP>:8880/
+```
+
+同时确认云服务器安全组/防火墙没有对公网放行 `8880`，只放行 `80/443` 和必要的 SSH 端口。
 
 注意：如果 Nginx 和 organization-server 之间还有 SLB、CDN 等代理，`$remote_addr` 会是代理的地址，此时应改用 `$http_x_forwarded_for` 做限制，或在最外层代理上设置真实 IP 模块。
 
