@@ -23,7 +23,7 @@ public class OrganizationEntity implements Serializable {
 	@Column(length = 1024)
 	public String description;
 
-	@Column(length = 1024)
+	@Column(length = 1024, name = "portrait_url")
 	public String portraitUrl;
 
 	@Column(length = 64)
@@ -41,10 +41,10 @@ public class OrganizationEntity implements Serializable {
 	@Column
 	public int sort;
 
-	@Column
+	@Column(name = "update_dt")
 	public long updateDt;
 
-	@Column
+	@Column(name = "create_dt")
 	public long createDt;
 
 	@Transient

@@ -158,6 +158,10 @@ public class ServiceImpl implements Service {
     @Value("${im.usage.timezone:}")
     private String imUsageTimezone;
 
+    /** 是否把员工手机号同步到 IM 用户资料；false 时手机号只保存在组织库，不写入 IM。 */
+    @Value("${organization.sync_user_mobile:true}")
+    private boolean syncUserMobile;
+
     /**
      * IM 库 t_user_session._dt 的时间单位：auto（默认，按数据量级自动探测）/
      * seconds / millis / micros。表数据量很大且不想每次探测 max(_dt) 时可显式指定。
@@ -1593,7 +1597,9 @@ public class ServiceImpl implements Service {
         inputOutputUserInfo.setDisplayName(employeePojo.name);
         inputOutputUserInfo.setGender(employeePojo.gender);
         inputOutputUserInfo.setPortrait(employeePojo.portraitUrl);
-        inputOutputUserInfo.setMobile(employeePojo.mobile);
+        if (syncUserMobile) {
+            inputOutputUserInfo.setMobile(employeePojo.mobile);
+        }
         inputOutputUserInfo.setEmail(employeePojo.email);
 
         try {
@@ -1604,7 +1610,7 @@ public class ServiceImpl implements Service {
                     needCreateUserInImServer = false;
                     inputOutputUserInfo.setName(outputUserInfoIMResult.getResult().getName());
                 } else if (outputUserInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_NOT_EXIST) {
-                    if (!StringUtils.isNullOrEmpty(employeePojo.mobile)) {
+                    if (syncUserMobile && !StringUtils.isNullOrEmpty(employeePojo.mobile)) {
                         IMResult<InputOutputUserInfo> mobileUserResult = retryImCall(() -> UserAdmin.getUserByMobile(employeePojo.mobile), "getUserByMobile");
                         if (mobileUserResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
                             LOG.warn("Create employee failed - employeeId not exist but mobile already used by another user: employeeId={}, mobile={}, existingUserId={}",
@@ -1619,7 +1625,7 @@ public class ServiceImpl implements Service {
                     throw new IMServerException();
                 }
             } else {
-                if (!StringUtils.isNullOrEmpty(employeePojo.mobile)) {
+                if (syncUserMobile && !StringUtils.isNullOrEmpty(employeePojo.mobile)) {
                     IMResult<InputOutputUserInfo> outputUserInfoIMResult = retryImCall(() -> UserAdmin.getUserByMobile(employeePojo.mobile), "getUserByMobile");
                     if (outputUserInfoIMResult.getErrorCode() == ErrorCode.ERROR_CODE_SUCCESS) {
                         employeePojo.employeeId = outputUserInfoIMResult.result.getUserId();
@@ -1645,11 +1651,15 @@ public class ServiceImpl implements Service {
                 employeePojo.employeeId = outputCreateUserIMResult.result.getUserId();
             } else {
                 //用户已经存在，同步用户信息
-                IMResult<Void> updateResult = retryImCall(() -> UserAdmin.updateUserInfo(inputOutputUserInfo, ProtoConstants.UpdateUserInfoMask.Update_User_DisplayName
+                int mask = ProtoConstants.UpdateUserInfoMask.Update_User_DisplayName
                     | ProtoConstants.UpdateUserInfoMask.Update_User_Gender
                     | ProtoConstants.UpdateUserInfoMask.Update_User_Portrait
-                    | ProtoConstants.UpdateUserInfoMask.Update_User_Mobile
-                    | ProtoConstants.UpdateUserInfoMask.Update_User_Email), "updateUserInfo");
+                    | ProtoConstants.UpdateUserInfoMask.Update_User_Email;
+                if (syncUserMobile) {
+                    mask |= ProtoConstants.UpdateUserInfoMask.Update_User_Mobile;
+                }
+                final int updateMask = mask;
+                IMResult<Void> updateResult = retryImCall(() -> UserAdmin.updateUserInfo(inputOutputUserInfo, updateMask), "updateUserInfo");
                 if (updateResult.getErrorCode() != ErrorCode.ERROR_CODE_SUCCESS) {
                     throw new IMServerException();
                 }
@@ -1709,7 +1719,7 @@ public class ServiceImpl implements Service {
                 inputOutputUserInfo.setDisplayName(employeePojo.name);
                 flag |= ProtoConstants.UpdateUserInfoMask.Update_User_DisplayName;
             }
-            if (!isEqual(employeePojo.mobile, outputUserInfoIMResult.result.getMobile())) {
+            if (syncUserMobile && !isEqual(employeePojo.mobile, outputUserInfoIMResult.result.getMobile())) {
                 inputOutputUserInfo.setMobile(employeePojo.mobile);
                 flag |= ProtoConstants.UpdateUserInfoMask.Update_User_Mobile;
             }

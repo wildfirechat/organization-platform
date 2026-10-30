@@ -17,7 +17,7 @@ public class OperationLogEntity implements Serializable {
     @Column(length = 64)
     public String operation;
 
-    @Column(length = 1024)
+    @Column(length = 1024, name = "operation_desc")
     public String operationDesc;
 
     @Column

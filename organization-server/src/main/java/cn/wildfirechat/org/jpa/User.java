@@ -27,7 +27,7 @@ public class User implements Serializable {
 	@Column(length = 128)
 	private String salt;
 
-	@Column(length = 128)
+	@Column(length = 128, name = "password_md5")
 	private String passwordMd5;
 
 	public String getAccount() {

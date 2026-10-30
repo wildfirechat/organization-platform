@@ -31,9 +31,9 @@ public class RelationshipEntity implements Serializable {
 	@Column(name = "parent_organization_id")
 	public int parentOrganizationId;
 
-	@Column
+	@Column(name = "update_dt")
 	public long updateDt;
 
-	@Column
+	@Column(name = "create_dt")
 	public long createDt;
 }

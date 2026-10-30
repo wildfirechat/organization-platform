@@ -127,6 +127,245 @@ nginx -s reload
 
 注意：如果 Nginx 和 organization-server 之间还有 SLB、CDN 等代理，`$remote_addr` 会是代理的地址，此时应改用 `$http_x_forwarded_for` 做限制，或在最外层代理上设置真实 IP 模块。
 
+## 升级注意事项
+
+从旧版本升级到当前版本时，除了替换 jar 和配置，还需要处理下面的配置/数据库兼容问题。否则会出现“服务启动不起来”或“登录报 sessionId 错误”。
+
+### 1. 主数据源配置前缀已变化
+
+当前版本的主数据源使用：
+
+```java
+@ConfigurationProperties(prefix = "spring.datasource.hikari")
+```
+
+所以配置必须是 `spring.datasource.hikari.*`，旧版本的 `spring.datasource.url/username/password/driver-class-name` 不会再被主数据源读取。
+
+升级时请把旧配置：
+
+```properties
+spring.datasource.url=jdbc:mysql://...
+spring.datasource.username=root
+spring.datasource.password=...
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+```
+
+改成：
+
+```properties
+spring.datasource.hikari.jdbc-url=jdbc:mysql://...
+spring.datasource.hikari.username=root
+spring.datasource.hikari.password=...
+spring.datasource.hikari.driver-class-name=com.mysql.cj.jdbc.Driver
+```
+
+否则启动会报：
+
+```text
+IllegalArgumentException: dataSource or dataSourceClassName or jdbcUrl is required.
+```
+
+第二个、第三个数据源同理，分别使用：
+
+```properties
+spring.secondary-datasource.hikari.*
+spring.im-datasource.hikari.*
+```
+
+不需要第二个/第三个数据源时，可以整段注释掉，服务仍可启动；只是“今日使用情况”等依赖 IM 库的接口不可用。
+
+### 2. 检查 shiro_session 的历史列 sessionId
+
+旧库的 `shiro_session` 表里可能同时存在两列：
+
+```sql
+session_id   varchar(128) NOT NULL  -- 主键，当前代码实际使用
+session_data blob
+sessionId    varchar(128) NOT NULL  -- 历史遗留列
+```
+
+当前实体 `ShiroSession` 的 Java 字段虽然叫 `sessionId`，但 Hibernate 会按命名策略映射到数据库列 **`session_id`**，不会使用 `sessionId` 这个物理列。如果历史遗留的 `sessionId` 是 `NOT NULL` 且没有默认值，登录时会报：
+
+```text
+Field 'sessionId' doesn't have a default value
+could not execute statement
+```
+
+升级前先检查：
+
+```sql
+SHOW CREATE TABLE shiro_session;
+
+SELECT COUNT(*)
+FROM shiro_session
+WHERE sessionId IS NOT NULL;
+```
+
+如果 `sessionId` 全部为 NULL，且没有索引、外键、触发器、视图引用它，可以按下面方式处理。
+
+先备份数据：
+
+```bash
+mysqldump -h <db_host> -u <user> -p \
+  --no-create-info --skip-triggers \
+  organization_server shiro_session > shiro_session_backup.sql
+```
+
+方案 A（最稳，先让插入不再失败）：
+
+```sql
+ALTER TABLE shiro_session
+MODIFY COLUMN sessionId varchar(128)
+CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+NULL DEFAULT NULL;
+```
+
+方案 B（确认无用后彻底删除）：
+
+```sql
+ALTER TABLE shiro_session DROP COLUMN sessionId;
+```
+
+> 建议先执行方案 A，确认登录正常后再执行方案 B。`spring.jpa.hibernate.ddl-auto=update` 只会新增列，不会删除历史列，所以这个遗留列不会自动消失。
+
+同类问题不只 `sessionId`。历史库里还可能同时存在 snake_case 和 camelCase 两套列，例如：
+
+| 表 | snake_case（有数据） | camelCase（历史遗留） |
+|---|---|---|
+| `t_organization` | `create_dt` / `update_dt` / `portrait_url` | `createDt` / `updateDt` / `portraitUrl` |
+| `t_relationship` | `create_dt` / `update_dt` | `createDt` / `updateDt` |
+| `t_employee` | `portrait_url` | `portraitUrl` |
+| `t_user` | `password_md5` | `passwordMd5` |
+| `t_optlog` | `operation_desc` | `operationDesc` |
+
+当前实体已显式映射到 snake_case 列。升级时请确认数据在 snake_case 列中；否则会出现：
+
+```text
+Null value was assigned to a property ... of primitive type
+```
+
+或者管理员密码校验失败。不要只把数据写到 camelCase 列，`ddl-auto=update` 也不会自动合并这两套列。
+
+### 3. im.admin_url 和 im.admin_secret
+
+`im.admin_url` 必须是**签发 authCode 的那套 IM** 的管理接口地址，`im.admin_secret` 必须是该 IM 的 `http.admin.secret_key`。
+
+```properties
+im.admin_url=http://<im-admin-host>:18080
+im.admin_secret=<http.admin.secret_key>
+```
+
+如果 authCode 不是这套 IM 签发的，或者密钥不一致，IM 会返回：
+
+```json
+{"code":6,"msg":"token error"}
+```
+
+服务端日志里可以看到请求已经到达：
+
+```text
+AdminHttpUtils : http request content: {"authCode":"..."}
+AdminHttpUtils : http request response content: {"code":6,"msg":"token error"}
+```
+
+同时确认运行 organization-server 的机器能访问该 `im.admin_url` 的 `18080` 端口。
+
+### 4. 外部人员访问与手机号同步
+
+#### 外部人员访问组织架构
+
+```properties
+# true：不在组织架构内的外部人员也可以登录并查看组织架构（只授予 user:view）
+# false：只有 t_employee 中存在的员工才能登录
+organization.allow_external_staff_access=true
+```
+
+这个开关只控制外部人员能否登录和查看，不会授予管理员权限。
+
+如果外部人员查看组织架构返回 `{"code":14,"message":"没有权限"}`，先确认：
+
+1. 配置确实是 `organization.allow_external_staff_access=true`；
+2. 客户端已经成功调用 `/api/user_login` 并保存了响应头里的 `authToken`；
+3. 后续请求是否带上了 `authToken`；
+4. 服务端日志是否有 `Permission denied: uri=..., principal=..., authenticated=false`。
+
+`authenticated=false` 表示请求没有有效登录态，不是 `allow_external_staff_access` 没生效。
+
+#### 是否同步员工手机号到 IM
+
+```properties
+# true：创建/更新员工时，把组织库中的手机号同步到 IM 用户资料
+# false：手机号只保存在组织库，不写入 IM
+organization.sync_user_mobile=true
+```
+
+默认 `true`，保持旧版本行为。设置为 `false` 后：
+
+- 创建员工时不会把手机号写入 IM；
+- 更新员工时不会修改 IM 中已有的手机号；
+- 组织库里的 `t_employee.mobile` 仍然正常保存；
+- 通过手机号查找已有 IM 用户的逻辑也会跳过。
+
+### 5. Web 端跨域必须配置 allowed_origins
+
+如果 Web 客户端和 organization-server 不同源（例如 Web 端是 `https://web.wildfirechat.cn`，API 是 `https://org.wildfirechat.net`），必须在 `application.properties` 中配置：
+
+```properties
+wfc.cors.allowed_origins=https://web.wildfirechat.cn
+```
+
+多个来源用英文逗号分隔。默认留空表示不允许任何跨域。
+
+没有配置时，浏览器会先发 `OPTIONS /api/user_login` 预检请求，服务端返回：
+
+```text
+HTTP/1.1 403
+Invalid CORS request
+```
+
+浏览器随后不会发送真正的 `POST /api/user_login`，所以服务端日志里也不会出现 `Request: user_login`。这不是客户端没有发请求，而是预检被 CORS 拦截了。
+
+服务端会在 `CorsFilter` 中打印拒绝日志，方便定位：
+
+```text
+WARN  cn.wildfirechat.org.shiro.CorsFilter : CORS rejected: origin=https://web.example.com, method=OPTIONS, uri=/api/user_login, allowedOrigins=[https://web.wildfirechat.cn]
+```
+
+启动时也会打印当前允许的来源：
+
+```text
+INFO  cn.wildfirechat.org.shiro.CorsFilter : CORS allowed origins: [https://web.wildfirechat.cn]
+```
+
+iOS/Android 原生客户端不走 CORS，不受这个配置影响。
+
+### 6. 升级后建议客户端重新登录
+
+当前版本升级了 Shiro，并收紧了会话反序列化白名单。升级后旧 `authToken` 可能无法继续使用，建议通知客户端重新登录一次，避免继续携带旧 session 导致反复跳登录页。
+
+### 7. 启动脚本参数位置
+
+`-Xmx` 是 JVM 参数，必须放在 `-jar` 前面：
+
+```bash
+nohup java -Xmx256M -jar organization-platform-server-*.jar > nohup.out 2>&1 &
+```
+
+写成 `java -jar xxx.jar -Xmx256M` 时，`-Xmx256M` 会被当成程序参数，JVM 堆大小不会生效。
+
+### 升级检查清单
+
+- [ ] 主数据源已改为 `spring.datasource.hikari.*`
+- [ ] 第二/第三数据源按需配置，前缀分别为 `spring.secondary-datasource.hikari.*`、`spring.im-datasource.hikari.*`
+- [ ] 已检查 `shiro_session` 是否存在多余的 `sessionId` 列
+- [ ] 已备份 `shiro_session` 数据
+- [ ] 已处理 `sessionId` 列（改可空或删除）
+- [ ] 已确认 `organization.allow_external_staff_access` 是否符合预期
+- [ ] 已确认 `organization.sync_user_mobile` 是否符合隐私要求
+- [ ] Web 端跨域已配置 `wfc.cors.allowed_origins`
+- [ ] 启动脚本中 `-Xmx` 在 `-jar` 之前
+- [ ] 升级后客户端重新登录验证
+
 ## 登录
 浏览器打开```http://{IP}:8880```进入到管理后台界面，默认账户/密码为 ```admin/admin123```  登陆以后注意修改默认密码。
 

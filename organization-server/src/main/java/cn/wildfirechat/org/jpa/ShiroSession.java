@@ -8,7 +8,8 @@ import javax.persistence.*;
 @Table(name = "shiro_session")
 public class ShiroSession {
 	@Id
-	@Column(length = 128)
+	// 显式指定列名，避免不同 Hibernate/Spring Boot 命名策略把 sessionId 映射成 sessionId 或 session_id
+	@Column(name = "session_id", length = 128)
 	private String sessionId;
 
 	@Lob

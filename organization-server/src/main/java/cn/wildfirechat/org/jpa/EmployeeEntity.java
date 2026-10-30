@@ -34,7 +34,7 @@ public class EmployeeEntity implements Serializable {
 	@Column(length = 1024)
 	public String office;
 
-	@Column(length = 1024)
+	@Column(length = 1024, name = "portrait_url")
 	public String portraitUrl;
 
 	@Column(length = 64, name = "job_number")
