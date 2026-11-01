@@ -1995,15 +1995,17 @@ public class ServiceImpl implements Service {
 
         Page<EmployeeEntity> entityPage = null;
         Pageable pageable = PageRequest.of(page, count);
-        if (!StringUtils.isNullOrEmpty(keyword)) {
+        String searchKeyword = keyword == null ? null : keyword.trim();
+        if (!StringUtils.isNullOrEmpty(searchKeyword)) {
+            String nameKeyword = escapeLikeKeyword(searchKeyword);
             if (organizationId > 0) {
                 if (root) {
-                    entityPage = employeeEntityRepository.searchByKeywordAndOrganizationRoot(keyword, organizationId, pageable);
+                    entityPage = employeeEntityRepository.searchByKeywordAndOrganizationRoot(nameKeyword, searchKeyword, organizationId, pageable);
                 } else {
-                    entityPage = employeeEntityRepository.searchByKeywordAndOrganization(keyword, organizationId, pageable);
+                    entityPage = employeeEntityRepository.searchByKeywordAndOrganization(nameKeyword, searchKeyword, organizationId, pageable);
                 }
             } else {
-                entityPage = employeeEntityRepository.searchByKeyword(keyword, pageable);
+                entityPage = employeeEntityRepository.searchByKeyword(nameKeyword, searchKeyword, pageable);
             }
         } else {
             entityPage = employeeEntityRepository.searchByOrganization(organizationId, pageable);
@@ -2017,6 +2019,16 @@ public class ServiceImpl implements Service {
         Set<String> executiveIds = executiveIds();
         entityPage.getContent().forEach(employeeEntity -> response.contents.add(convertEmployee(employeeEntity, executiveIds)));
         return RestResult.ok(response);
+    }
+
+    /**
+     * 转义用户输入里的 LIKE 通配符，避免输入 % / _ 把整张表都搜出来。
+     * 对应 SQL 使用 {@code escape '!'}，所以这里也把 ! 自身转义。
+     */
+    private String escapeLikeKeyword(String keyword) {
+        return keyword.replace("!", "!!")
+                .replace("%", "!%")
+                .replace("_", "!_");
     }
 
     // ------------------------------------------------------------------ 高管名单

@@ -273,12 +273,17 @@
         <el-dialog
             :title="managerTargetDepartment && managerTargetDepartment.managerId ? '修改组织领导' : '设置组织领导'"
             v-model="showSetManagerDialog" width="460px" :close-on-click-modal="false"
-            :before-close="() => { showSetManagerDialog = false }">
+            :before-close="() => { showSetManagerDialog = false }" @closed="resetManagerDialog">
             <el-form label-position="top">
                 <el-form-item label="部门领导">
-                    <el-select v-model="selectedManagerId" filterable placeholder="请选择部门领导" style="width: 100%">
-                        <el-option v-for="emp in managerCandidates" :key="emp.employeeId" :label="emp.name"
-                                   :value="emp.employeeId"/>
+                    <!-- 部门人多时只加载前几十个会让后面的人搜不到，这里改成由后端按关键字搜索 -->
+                    <el-select v-model="selectedManagerId" filterable remote reserve-keyword
+                               :remote-method="searchManagerCandidates" :loading="managerSearching"
+                               placeholder="输入姓名搜索" no-data-text="没有匹配的成员"
+                               style="width: 100%" @change="onManagerSelected"
+                               @clear="searchManagerCandidates('')">
+                        <el-option v-for="emp in managerCandidates" :key="emp.employeeId"
+                                   :label="emp.name || emp.employeeId" :value="emp.employeeId"/>
                     </el-select>
                 </el-form-item>
             </el-form>
@@ -306,6 +311,10 @@ import UpdateEmployee from "@/components/page/organization/dialog/UpdateEmployee
 import UsageToday from "@/components/page/organization/dialog/UsageToday.vue";
 import OrganizationWithChildren from "@/model/organizationWithChildren";
 import api from "@/api/api";
+
+// 领导候选人的远程搜索：一次取 50 条足够下拉展示，输入时再按关键字向后端查
+const MANAGER_SEARCH_PAGE_SIZE = 50;
+const MANAGER_SEARCH_DEBOUNCE_MS = 300;
 
 export default {
     name: "Member",
@@ -366,6 +375,10 @@ export default {
             managerTargetNode: null,
             selectedManagerId: null,
             managerCandidates: [],
+            managerSelectedEmployee: null,
+            managerSearching: false,
+            managerSearchTimer: null,
+            managerSearchSeq: 0,
 
             // 今日使用情况
             showUsageTodayDialog: false,
@@ -402,6 +415,10 @@ export default {
         } else if (!this.currentOrg) {
             this.selectDefaultOrg();
         }
+    },
+
+    beforeUnmount() {
+        this.clearManagerSearchTimer();
     },
 
     methods: {
@@ -574,14 +591,7 @@ export default {
                     });
                     break;
                 case 'set-manager': {
-                    const depart = command.depart;
-                    this.managerTargetDepartment = depart;
-                    this.managerTargetNode = command.node;
-                    this.selectedManagerId = depart.managerId || null;
-                    api.searchEmployee(depart.id, '', 0, 100, false).then(result => {
-                        this.managerCandidates = result.contents || [];
-                        this.showSetManagerDialog = true;
-                    });
+                    this.openSetManagerDialog(command.depart, command.node);
                     break;
                 }
                 case 'move-up': {
@@ -661,6 +671,134 @@ export default {
                 this.reloadCurrentOrg();
             }
         },
+        openSetManagerDialog(depart, node) {
+            this.clearManagerSearchTimer();
+            this.managerSearchSeq++;
+            this.managerTargetDepartment = depart;
+            this.managerTargetNode = node;
+            this.selectedManagerId = depart.managerId || null;
+            this.managerSelectedEmployee = null;
+            this.managerCandidates = depart.managerId
+                ? [{employeeId: depart.managerId, name: depart.managerName || depart.managerId}]
+                : [];
+            this.managerSearching = false;
+            this.showSetManagerDialog = true;
+
+            // 先展示弹窗，再异步加载第一页候选；现任领导先放进去，避免下拉框只显示 employeeId
+            const seq = this.managerSearchSeq;
+            this.fetchManagerCandidates('', seq);
+            if (depart.managerId && !depart.managerName) {
+                this.loadSelectedManagerName(depart);
+            }
+        },
+        async loadSelectedManagerName(depart) {
+            try {
+                const employee = await api.queryEmployee(depart.managerId);
+                if (!employee || !employee.employeeId || this.managerTargetDepartment !== depart) {
+                    return;
+                }
+                this.managerSelectedEmployee = employee;
+                this.managerCandidates = this.withSelectedManager(
+                    this.managerCandidates.map(e => e.employeeId === employee.employeeId ? employee : e)
+                );
+            } catch (e) {
+                // 名字查不到时下拉框仍可用 employeeId 兜底，不打断设置领导流程
+                console.warn('查询现任领导姓名失败', e);
+            }
+        },
+        searchManagerCandidates(keyword) {
+            if (!this.managerTargetDepartment) {
+                return;
+            }
+            this.clearManagerSearchTimer();
+            const seq = ++this.managerSearchSeq;
+            const query = (keyword || '').trim();
+            this.managerSearching = true;
+            this.managerSearchTimer = setTimeout(() => {
+                this.managerSearchTimer = null;
+                this.fetchManagerCandidates(query, seq);
+            }, MANAGER_SEARCH_DEBOUNCE_MS);
+        },
+        async fetchManagerCandidates(keyword, seq) {
+            const department = this.managerTargetDepartment;
+            if (!department) {
+                return;
+            }
+            this.managerSearching = true;
+            try {
+                const result = await api.searchEmployee(department.id, keyword, 0, MANAGER_SEARCH_PAGE_SIZE, false);
+                // 只接受最后一次输入的结果，避免慢请求把新结果覆盖掉
+                if (seq !== this.managerSearchSeq || this.managerTargetDepartment !== department) {
+                    return;
+                }
+                this.managerCandidates = this.withSelectedManager(result.contents || []);
+            } catch (e) {
+                if (seq === this.managerSearchSeq) {
+                    console.error('搜索部门成员失败', e);
+                    this.$message.error('搜索成员失败');
+                }
+            } finally {
+                if (seq === this.managerSearchSeq) {
+                    this.managerSearching = false;
+                }
+            }
+        },
+        withSelectedManager(candidates) {
+            const list = candidates || [];
+            if (!this.selectedManagerId) {
+                return list;
+            }
+            const inList = list.find(e => e.employeeId === this.selectedManagerId);
+            if (inList) {
+                // 下拉里已经有这个人时以接口返回的姓名为准，顺便把当前领导信息补全
+                if (!this.managerSelectedEmployee
+                    || this.managerSelectedEmployee.employeeId !== this.selectedManagerId) {
+                    this.managerSelectedEmployee = inList;
+                }
+                return list;
+            }
+            let selected = null;
+            if (this.managerSelectedEmployee && this.managerSelectedEmployee.employeeId === this.selectedManagerId) {
+                selected = this.managerSelectedEmployee;
+            } else if (this.managerTargetDepartment
+                && this.managerTargetDepartment.managerId === this.selectedManagerId) {
+                selected = {
+                    employeeId: this.selectedManagerId,
+                    name: this.managerTargetDepartment.managerName || this.selectedManagerId
+                };
+            }
+            return selected ? [selected, ...list] : list;
+        },
+        onManagerSelected(employeeId) {
+            if (!employeeId) {
+                this.managerSelectedEmployee = null;
+                return;
+            }
+            const employee = this.managerCandidates.find(e => e.employeeId === employeeId);
+            if (employee) {
+                this.managerSelectedEmployee = employee;
+            }
+        },
+        clearManagerSearchTimer() {
+            if (this.managerSearchTimer) {
+                clearTimeout(this.managerSearchTimer);
+                this.managerSearchTimer = null;
+            }
+        },
+        resetManagerDialog() {
+            // 关闭动画期间如果又打开了新弹窗，不要把新状态清掉
+            if (this.showSetManagerDialog) {
+                return;
+            }
+            this.clearManagerSearchTimer();
+            this.managerSearchSeq++;
+            this.managerSearching = false;
+            this.managerCandidates = [];
+            this.managerSelectedEmployee = null;
+            this.selectedManagerId = null;
+            this.managerTargetDepartment = null;
+            this.managerTargetNode = null;
+        },
         async confirmSetManager() {
             if (!this.selectedManagerId || !this.managerTargetDepartment) {
                 return;
@@ -669,7 +807,10 @@ export default {
                 await api.setOrganizationManager(this.managerTargetDepartment.id, this.selectedManagerId);
                 this.managerTargetDepartment.managerId = this.selectedManagerId;
                 if (this.managerTargetDepartment._orgWithChildren) {
-                    const manager = this.managerCandidates.find(e => e.employeeId === this.selectedManagerId);
+                    const manager = this.managerCandidates.find(e => e.employeeId === this.selectedManagerId)
+                        || (this.managerSelectedEmployee
+                            && this.managerSelectedEmployee.employeeId === this.selectedManagerId
+                            ? this.managerSelectedEmployee : null);
                     this.managerTargetDepartment.managerName = manager ? manager.name : null;
                 }
                 this.showSetManagerDialog = false;

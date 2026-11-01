@@ -23,27 +23,27 @@ public interface EmployeeEntityRepository extends CrudRepository<EmployeeEntity,
     @Query(value = "select * from t_employee where employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?1 and bottom = true) order by sort", nativeQuery = true)
     List<EmployeeEntity> findByOrganizationId(int organizationId);
 
-    @Query(value = "select * from t_employee where (name like CONCAT('%',?1,'%') or mobile = ?1) and employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?2 ) ",
-            countQuery = "select count(*) from t_employee where (name like  CONCAT('%',?1,'%') or mobile = ?1) and employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?2 )",
+    @Query(value = "select * from t_employee where (name like CONCAT('%',?1,'%') escape '!' or mobile = ?2) and employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?3 ) order by sort asc, employee_id asc",
+            countQuery = "select count(*) from t_employee where (name like  CONCAT('%',?1,'%') escape '!' or mobile = ?2) and employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?3 )",
             nativeQuery = true)
-    Page<EmployeeEntity> searchByKeywordAndOrganization(String keyword, int organizationId, Pageable pageable);
+    Page<EmployeeEntity> searchByKeywordAndOrganization(String nameKeyword, String mobileKeyword, int organizationId, Pageable pageable);
 
-    @Query(value = "select * from t_employee where (name LIKE CONCAT('%',?1,'%') or mobile = ?1) and employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?2 and bottom = true ) ",
-            countQuery = "select count(*) from t_employee where (name like  CONCAT('%',?1,'%') or mobile = ?1) and employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?2 and bottom = true )",
+    @Query(value = "select * from t_employee where (name LIKE CONCAT('%',?1,'%') escape '!' or mobile = ?2) and employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?3 and bottom = true ) order by sort asc, employee_id asc",
+            countQuery = "select count(*) from t_employee where (name like  CONCAT('%',?1,'%') escape '!' or mobile = ?2) and employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?3 and bottom = true )",
             nativeQuery = true)
-    Page<EmployeeEntity> searchByKeywordAndOrganizationRoot(String keyword, int organizationId, Pageable pageable);
+    Page<EmployeeEntity> searchByKeywordAndOrganizationRoot(String nameKeyword, String mobileKeyword, int organizationId, Pageable pageable);
     
-    @Query(value = "select * from t_employee where name like  CONCAT('%',?1,'%') or mobile = ?1",
-            countQuery = "select count(*) from t_employee where name like  CONCAT('%',?1,'%') or mobile = ?1",
+    @Query(value = "select * from t_employee where (name like  CONCAT('%',?1,'%') escape '!' or mobile = ?2) order by sort asc, employee_id asc",
+            countQuery = "select count(*) from t_employee where (name like  CONCAT('%',?1,'%') escape '!' or mobile = ?2)",
             nativeQuery = true)
-    Page<EmployeeEntity> searchByKeyword(String keyword, Pageable pageable);
+    Page<EmployeeEntity> searchByKeyword(String nameKeyword, String mobileKeyword, Pageable pageable);
 
-    @Query(value = "select * from t_employee where employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?1)",
+    @Query(value = "select * from t_employee where employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?1) order by sort asc, employee_id asc",
             countQuery = "select count(distinct(employee_id)) from t_relationship where organization_id = ?1",
             nativeQuery = true)
     Page<EmployeeEntity> searchByOrganization(int organizationId, Pageable pageable);
 
-    @Query(value = "select * from t_employee where employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?1 and bottom = true)",
+    @Query(value = "select * from t_employee where employee_id in (select distinct(employee_id) from t_relationship where organization_id = ?1 and bottom = true) order by sort asc, employee_id asc",
             countQuery = "select count(distinct(employee_id)) from t_relationship where organization_id = ?1 and bottom = true",
             nativeQuery = true)
     Page<EmployeeEntity> searchByOrganizationRoot(int organizationId, Pageable pageable);
